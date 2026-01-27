@@ -57,34 +57,61 @@ Interactive Swagger UI is available at:
 
 ```mermaid
 graph TD
-    Client[Client App / Browser] <-->|HTTP/JSON| Server[Axum Server]
-    Server <-->|SQLx| DB[(SQLite Database)]
-    Server -->|Hosting| Swagger[Swagger UI]
+    User[User / Client] -->|HTTP Request| API[Axum API Server]
+    API -->|Validation & Logic| Handlers[Request Handlers]
+    Handlers -->|Query| DB[(SQLite Database)]
+    DB -->|Result| Handlers
+    Handlers -->|JSON Response| API
+    API -->|Compressed JSON| User
     
-    subgraph "Server Layer"
-        Middleware[Compression (Gzip/Brotli)]
-        Handlers[API Handlers]
-        Router[Axum Router]
+    subgraph "Infrastructure"
+        API
+        DB
     end
-    
-    Server --- Middleware --- Router --- Handlers
 ```
 
 ## API Response Codes
 
 | Status Code | Description |
 |-------------|-------------|
-| **200 OK** | Request processed successfully. Returns requested data or success message. |
+| **200 OK** | Request processed successfully. Returns requested data. |
 | **404 Not Found** | The requested resource (Era, Event, or Question) does not exist. |
-| **500 Internal Server Error** | Unexpected server-side error (e.g., database connection failed). |
-| **400 Bad Request** | Invalid input parameters or missing required fields. |
+| **500 Internal Server Error** | Unexpected server-side error. |
 
-**Common Response Format:**
-All successful responses return JSON.
+### Example Responses
+
+**Success (200 OK) - Get Eras:**
 ```json
-{
-  "data": ...
-}
+[
+  {
+    "id": 1,
+    "name": "মাক্কী জীবন",
+    "description": "রাসূল (সাঃ) এর মক্কা জীবন",
+    "start_date": "610-01-01",
+    "end_date": "622-01-01"
+  }
+]
 ```
-*(Note: Current endpoints return direct arrays/objects, structure above is generic representation)*
 
+**Success (200 OK) - Get Random Quiz:**
+```json
+[
+  {
+    "id": 1,
+    "question_text": "প্রথম ওহী কোথায় নাজিল হয়েছিল?",
+    "difficulty_level": "Medium",
+    "options": [
+      {
+        "id": 1,
+        "option_text": "হেরা গুহায়",
+        "is_correct": true
+      },
+      {
+        "id": 2,
+        "option_text": "সাওর গুহায়",
+        "is_correct": false
+      }
+    ]
+  }
+]
+```
