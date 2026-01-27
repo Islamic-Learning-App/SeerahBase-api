@@ -1,0 +1,6 @@
+/target
+**/*.rs.bk
+seerah.db
+seerah.db-shm
+seerah.db-wal
+.env
