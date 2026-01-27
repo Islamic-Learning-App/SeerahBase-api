@@ -32,6 +32,17 @@ Starts the API on `http://localhost:3000`.
 cargo run --bin SeerahBase-api
 ```
 
+### Docker (Production)
+Build and run the container:
+```bash
+# Build image
+docker build -t seerahbase-api .
+
+# Run with data volume
+docker run -p 3000:3000 -v $(pwd)/data:/app/data seerahbase-api
+```
+*(Note: You may need to create the `data` directory locally first)*
+
 ## API Documentation
 Interactive Swagger UI is available at:
 **[http://localhost:3000/swagger-ui/](http://localhost:3000/swagger-ui/)**
