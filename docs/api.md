@@ -3,11 +3,17 @@
 ## Overview
 This API provides access to the SeerahBase database, serving information about Islamic history events, eras, and related quizzes.
 
+**Base URL**: `http://localhost:3000`  
+**Version**: `v1` (Current)
+
 ## Authentication
 Authentication is required for **writing** data (e.g., creating events). Read operations are public.
 
-**Method**: API Key  
-**Header**: `x-api-key`
+- **Mechanism**: API Key
+- **Header Name**: `x-api-key`
+- **Location**: Request Header
+
+To obtain a key, check the server configuration (`API_KEY` environment variable).
 
 ---
 
@@ -16,33 +22,43 @@ Authentication is required for **writing** data (e.g., creating events). Read op
 ### History
 
 #### 1. Get All Eras
-Retrieves a list of all historical eras.
+Retrieves a list of all historical eras saved in the database.
 
-- **URL**: `/eras`
+- **Endpoint**: `/eras`
 - **Method**: `GET`
 - **Auth Required**: No
+
+**Request Example**:
+```bash
+curl http://localhost:3000/eras
+```
 
 **Response**: `200 OK`
 ```json
 [
   {
     "id": 1,
-    "name": "Era Name",
-    "description": "Description...",
-    "start_date": "YYYY-MM-DD",
-    "end_date": "YYYY-MM-DD"
+    "name": "Makkah Period",
+    "description": "The life of the Prophet (SAW) in Makkah",
+    "start_date": "0610-01-01",
+    "end_date": "0622-01-01"
   }
 ]
 ```
 
 #### 2. Get Events by Era
-Retrieves all events belonging to a specific era.
+Retrieves all events belonging to a specific historical era.
 
-- **URL**: `/eras/{id}/events`
+- **Endpoint**: `/eras/{id}/events`
 - **Method**: `GET`
 - **Auth Required**: No
-- **Path Params**:
-    - `id`: Integer (Era ID)
+- **Path Parameters**:
+    - `id` (integer): The unique ID of the Era.
+
+**Request Example**:
+```bash
+curl http://localhost:3000/eras/1/events
+```
 
 **Response**: `200 OK`
 ```json
@@ -50,53 +66,64 @@ Retrieves all events belonging to a specific era.
   {
     "id": 10,
     "era_id": 1,
-    "title": "Event Title",
-    "description": "Event Description",
-    "event_date": "YYYY-MM-DD",
-    "source": "Source Reference"
+    "title": "First Revelation",
+    "description": "The Prophet (SAW) receives the first revelation in Cave Hira.",
+    "event_date": "0610-08-10",
+    "source": "Sahih Bukhari"
   }
 ]
 ```
 
 #### 3. Get All Events
-Retrieves all events in the database, ordered by date.
+Retrieves all events in the database, ordered chronologically.
 
-- **URL**: `/events`
+- **Endpoint**: `/events`
 - **Method**: `GET`
 - **Auth Required**: No
 
-**Response**: `200 OK`
-```json
-[
-  {
-    "id": 1,
-    "title": "Event Title",
-    ...
-  }
-]
+**Request Example**:
+```bash
+curl http://localhost:3000/events
 ```
 
 #### 4. Create New Event
-Adds a new event to the database.
+Adds a new historical event to the database.
 
-- **URL**: `/events`
+- **Endpoint**: `/events`
 - **Method**: `POST`
-- **Auth Required**: Yes (`x-api-key`)
-- **Body**: `application/json`
-```json
-{
-  "era_id": 1,
-  "title": "New Event",
-  "description": "Detailed description...",
-  "event_date": "2023-10-27",
-  "source": "Bukhari"
-}
+- **Auth Required**: Yes
+- **Headers**:
+    - `x-api-key`: `your_secret_key`
+    - `Content-Type`: `application/json`
+
+**Request Body (JSON)**:
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `title` | String | Yes | Title of the event |
+| `description` | String | Yes | Detailed description |
+| `era_id` | Integer | No | ID of the related era |
+| `event_date` | String | No | Date in `YYYY-MM-DD` format |
+| `source` | String | No | Source reference (e.g., Bukhari) |
+
+**Request Example**:
+```bash
+curl -X POST http://localhost:3000/events \
+  -H "x-api-key: secret_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "The Migration",
+    "description": "Migration from Makkah to Madinah",
+    "era_id": 1,
+    "event_date": "0622-09-24"
+  }'
 ```
 
-**Response**:
-- `201 Created`: Returns the created event object.
-- `401 Unauthorized`: If API key is missing or invalid.
-- `500 Internal Server Error`: If database insertion fails.
+**Success Response**: `201 Created`
+Returns the created [Event](#event-schema) object.
+
+**Error Responses**:
+- `401 Unauthorized`: Missing or invalid `x-api-key`.
+- `500 Internal Server Error`: Database constraint violation or other server error.
 
 ---
 
@@ -105,49 +132,71 @@ Adds a new event to the database.
 #### 5. Get Questions by Event
 Retrieves quiz questions related to a specific event.
 
-- **URL**: `/questions/event/{id}`
+- **Endpoint**: `/questions/event/{id}`
 - **Method**: `GET`
-- **Auth Required**: No
-- **Path Params**:
-    - `id`: Integer (Event ID)
+- **Path Parameters**:
+    - `id` (integer): The unique Event ID.
+
+**Request Example**:
+```bash
+curl http://localhost:3000/questions/event/10
+```
 
 **Response**: `200 OK`
-```json
-[
-  {
-    "question": {
-      "id": 100,
-      "event_id": 10,
-      "question_text": "What happened...?",
-      ...
-    },
-    "options": [
-      {
-        "id": 1001,
-        "question_id": 100,
-        "option_text": "Option A",
-        "is_correct": true
-      },
-      ...
-    ]
-  }
-]
-```
+Returns a list of [QuestionWithOptions](#questionwithoptions-schema).
 
 #### 6. Get Random Quiz
 Retrieves 5 random questions for a quick quiz.
 
-- **URL**: `/questions/random`
+- **Endpoint**: `/questions/random`
 - **Method**: `GET`
-- **Auth Required**: No
 
-**Response**: `200 OK`
+**Request Example**:
+```bash
+curl http://localhost:3000/questions/random
+```
+
+---
+
+## Data Schemas
+
+### Era Schema
+| Field | Type | Nullable | Description |
+|---|---|---|---|
+| `id` | Integer | No | Unique ID |
+| `name` | String | No | Era name |
+| `description` | String | Yes | Brief description |
+| `start_date` | String | Yes | ISO Date (YYYY-MM-DD) |
+| `end_date` | String | Yes | ISO Date (YYYY-MM-DD) |
+
+### Event Schema
+| Field | Type | Nullable | Description |
+|---|---|---|---|
+| `id` | Integer | No | Unique ID |
+| `era_id` | Integer | Yes | Foreign Key to Era |
+| `title` | String | No | Event title |
+| `description` | String | No | Full description |
+| `event_date` | String | Yes | ISO Date |
+| `source` | String | Yes | Source citation |
+
+### QuestionWithOptions Schema
+A composite object containing the question and its answer choices.
+
+**Structure**:
 ```json
-[
-  {
-    "question": { ... },
-    "options": [ ... ]
-  },
-  ...
-]
+{
+  "id": 100,             // Question ID (Flattend)
+  "event_id": 10,        // Related Event ID
+  "question_text": "...",
+  "explanation": "...",
+  "difficulty_level": "easy",
+  "options": [           // Array of AnswerOption
+    {
+      "id": 1001,
+      "question_id": 100,
+      "option_text": "Option A",
+      "is_correct": true
+    }
+  ]
+}
 ```
