@@ -1,8 +1,11 @@
-use axum::{
-    extract::{Path, State},
-    Json,
+use crate::{
+    db::DbPool,
+    models::{AnswerOption, Question, QuestionWithOptions},
 };
-use crate::{db::DbPool, models::{Question, AnswerOption, QuestionWithOptions}};
+use axum::{
+    Json,
+    extract::{Path, State},
+};
 
 #[utoipa::path(
     get,
@@ -30,15 +33,16 @@ pub async fn get_questions_by_event(
     }
 
     let _question_ids: Vec<i64> = questions.iter().map(|q| q.id).collect();
-    
+
     let mut result = Vec::new();
 
     for q in questions {
-        let options = sqlx::query_as::<_, AnswerOption>("SELECT * FROM options WHERE question_id = ?")
-            .bind(q.id)
-            .fetch_all(&pool)
-            .await
-            .unwrap_or_else(|_| vec![]);
+        let options =
+            sqlx::query_as::<_, AnswerOption>("SELECT * FROM options WHERE question_id = ?")
+                .bind(q.id)
+                .fetch_all(&pool)
+                .await
+                .unwrap_or_else(|_| vec![]);
 
         result.push(QuestionWithOptions {
             question: q,
@@ -58,19 +62,21 @@ pub async fn get_questions_by_event(
 )]
 pub async fn get_random_quiz(State(pool): State<DbPool>) -> Json<Vec<QuestionWithOptions>> {
     // Get 5 random questions
-    let questions = sqlx::query_as::<_, Question>("SELECT * FROM questions ORDER BY RANDOM() LIMIT 5")
-        .fetch_all(&pool)
-        .await
-        .unwrap_or_else(|_| vec![]);
-
-    let mut result = Vec::new();
-    for q in questions {
-        let options = sqlx::query_as::<_, AnswerOption>("SELECT * FROM options WHERE question_id = ?")
-            .bind(q.id)
+    let questions =
+        sqlx::query_as::<_, Question>("SELECT * FROM questions ORDER BY RANDOM() LIMIT 5")
             .fetch_all(&pool)
             .await
             .unwrap_or_else(|_| vec![]);
-            
+
+    let mut result = Vec::new();
+    for q in questions {
+        let options =
+            sqlx::query_as::<_, AnswerOption>("SELECT * FROM options WHERE question_id = ?")
+                .bind(q.id)
+                .fetch_all(&pool)
+                .await
+                .unwrap_or_else(|_| vec![]);
+
         result.push(QuestionWithOptions {
             question: q,
             options,
