@@ -75,9 +75,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .route(
             "/events/{id}",
-            get(handlers::history::get_all_events) // Probably mistake to map GET /events/{id} to get_all ?? Wait, standard CRUD usually has GET /events/{id}.
-            // Correcting on the fly: I don't have get_event_by_id yet. 
-            // I'll just map put and delete for now.
+            get(handlers::history::get_event_by_id)
              .put(handlers::history::update_event)
              .delete(handlers::history::delete_event),
         )

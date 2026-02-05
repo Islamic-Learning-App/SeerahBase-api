@@ -7,9 +7,9 @@
     let loading = $state(true);
     let sortOrder = $state<"asc" | "desc">("asc");
 
-    // Modal State
-    let showModal = $state(false);
-    let selectedEvent = $state<any>(null);
+    // Modal State removed
+    // let showModal = $state(false);
+    // let selectedEvent = $state<any>(null);
 
     $effect(() => {
         api.getEras().then((data) => {
@@ -38,16 +38,6 @@
 
     function toggleSort() {
         sortOrder = sortOrder === "asc" ? "desc" : "asc";
-    }
-
-    function openModal(event: any) {
-        selectedEvent = event;
-        showModal = true;
-    }
-
-    function closeModal() {
-        showModal = false;
-        selectedEvent = null;
     }
 
     // Simple truncation helper
@@ -141,12 +131,12 @@
                             </div>
 
                             {#if event.description && event.description.length > 150}
-                                <button
-                                    onclick={() => openModal(event)}
-                                    class="mt-3 text-sm text-primary hover:text-yellow-300 font-medium underline decoration-dotted underline-offset-4"
+                                <a
+                                    href={`/events/${event.id}`}
+                                    class="mt-3 inline-block text-sm text-primary hover:text-yellow-300 font-medium underline decoration-dotted underline-offset-4"
                                 >
-                                    Read More
-                                </button>
+                                    Read More &rarr;
+                                </a>
                             {/if}
 
                             {#if event.source}
@@ -160,67 +150,6 @@
                     </div>
                 {/each}
             {/if}
-        </div>
-    {/if}
-
-    <!-- Detail Modal -->
-    {#if showModal && selectedEvent}
-        <div
-            class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity"
-            onclick={closeModal}
-            aria-hidden="true"
-        >
-            <div
-                class="bg-secondary border border-gray-700 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl p-8 relative animate-in fade-in zoom-in-95 duration-200"
-                onclick={(e) => e.stopPropagation()}
-                aria-hidden="true"
-            >
-                <button
-                    onclick={closeModal}
-                    class="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
-                >
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="h-6 w-6"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                    >
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M6 18L18 6M6 6l12 12"
-                        />
-                    </svg>
-                </button>
-
-                <span
-                    class="text-sm font-mono text-primary bg-primary/10 px-2 py-1 rounded mb-4 inline-block"
-                >
-                    {selectedEvent.event_date || "Unknown Date"}
-                </span>
-
-                <h2 class="text-3xl font-bold text-light mb-6">
-                    {selectedEvent.title}
-                </h2>
-
-                <div
-                    class="prose prose-invert prose-p:text-gray-300 prose-a:text-primary prose-a:underline max-w-none"
-                >
-                    {@html parseMarkdown(selectedEvent.description)}
-                </div>
-
-                {#if selectedEvent.source}
-                    <div class="mt-8 pt-4 border-t border-gray-800">
-                        <p class="text-sm text-gray-500">
-                            Source: <span class="text-gray-400 italic"
-                                >{selectedEvent.source}</span
-                            >
-                        </p>
-                    </div>
-                {/if}
-            </div>
         </div>
     {/if}
 </div>

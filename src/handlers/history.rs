@@ -233,3 +233,30 @@ pub async fn delete_event(
         }
     }
 }
+
+#[utoipa::path(
+    get,
+    path = "/events/{id}",
+    params(
+        ("id" = i64, Path, description = "Event ID")
+    ),
+    responses(
+        (status = 200, description = "Event details", body = Event),
+        (status = 404, description = "Event not found")
+    )
+)]
+pub async fn get_event_by_id(
+    State(pool): State<DbPool>,
+    Path(id): Path<i64>,
+) -> impl IntoResponse {
+    let event = sqlx::query_as::<_, Event>("SELECT * FROM events WHERE id = ?")
+        .bind(id)
+        .fetch_optional(&pool)
+        .await
+        .unwrap_or(None);
+
+    match event {
+        Some(e) => (StatusCode::OK, Json(e)).into_response(),
+        None => (StatusCode::NOT_FOUND, "Event not found").into_response(),
+    }
+}

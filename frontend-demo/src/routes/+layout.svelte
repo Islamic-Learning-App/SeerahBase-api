@@ -35,6 +35,6 @@
 	</main>
 
 	<footer class="bg-secondary text-gray-500 text-center p-4 mt-8">
-		&copy; 2024 SeerahBase
+		&copy; 2026 SeerahBase
 	</footer>
 </div>

@@ -26,6 +26,7 @@ export async function fetchAPI(endpoint: string, options: RequestInit = {}) {
 export const api = {
     getEras: () => fetchAPI('/eras'),
     getEventsByEra: (eraId: number) => fetchAPI(`/eras/${eraId}/events`),
+    getEventById: (id: number) => fetchAPI(`/events/${id}`),
     getAllEvents: () => fetchAPI('/events'),
     createEvent: (data: any) => fetchAPI('/events', { method: 'POST', body: JSON.stringify(data) }),
     updateEvent: (id: number, data: any) => fetchAPI(`/events/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
