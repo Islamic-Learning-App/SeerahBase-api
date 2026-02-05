@@ -53,3 +53,35 @@ pub struct CreateEvent {
     pub event_date: Option<String>,
     pub source: Option<String>,
 }
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct UpdateEvent {
+    pub era_id: Option<i64>,
+    pub title: Option<String>,
+    pub description: Option<String>,
+    pub event_date: Option<String>,
+    pub source: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct CreateOption {
+    pub option_text: String,
+    pub is_correct: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct CreateQuestion {
+    pub event_id: Option<i64>,
+    pub question_text: String,
+    pub explanation: Option<String>,
+    pub difficulty_level: Option<String>,
+    pub options: Vec<CreateOption>,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct UpdateQuestion {
+    pub event_id: Option<i64>,
+    pub question_text: Option<String>,
+    pub explanation: Option<String>,
+    pub difficulty_level: Option<String>,
+}

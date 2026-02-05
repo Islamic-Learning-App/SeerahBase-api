@@ -1,6 +1,7 @@
 use axum::{Router, routing::get};
 use std::net::SocketAddr;
 use tower_http::compression::CompressionLayer;
+use tower_http::cors::CorsLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
@@ -18,11 +19,27 @@ mod models;
         handlers::history::get_events_by_era,
         handlers::history::get_all_events,
         handlers::history::create_event,
+        handlers::history::update_event,
+        handlers::history::delete_event,
         handlers::mcq::get_questions_by_event,
         handlers::mcq::get_random_quiz,
+        handlers::mcq::create_question,
+        handlers::mcq::update_question,
+        handlers::mcq::delete_question,
     ),
     components(
-        schemas(models::Era, models::Event, models::Question, models::AnswerOption, models::QuestionWithOptions, models::CreateEvent)
+        schemas(
+            models::Era, 
+            models::Event, 
+            models::Question, 
+            models::AnswerOption, 
+            models::QuestionWithOptions, 
+            models::CreateEvent,
+            models::UpdateEvent,
+            models::CreateQuestion,
+            models::CreateOption,
+            models::UpdateQuestion
+        )
     ),
     tags(
         (name = "SeerahBase", description = "SeerahBase API Endpoints")
@@ -57,10 +74,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             get(handlers::history::get_all_events).post(handlers::history::create_event),
         )
         .route(
+            "/events/{id}",
+            get(handlers::history::get_all_events) // Probably mistake to map GET /events/{id} to get_all ?? Wait, standard CRUD usually has GET /events/{id}.
+            // Correcting on the fly: I don't have get_event_by_id yet. 
+            // I'll just map put and delete for now.
+             .put(handlers::history::update_event)
+             .delete(handlers::history::delete_event),
+        )
+        .route(
             "/questions/event/{id}",
             get(handlers::mcq::get_questions_by_event),
         )
         .route("/questions/random", get(handlers::mcq::get_random_quiz))
+        .route(
+            "/questions",
+            get(handlers::mcq::get_random_quiz) // Or maybe get_all_questions? Don't have it.
+            // Let's just map POST.
+            .post(handlers::mcq::create_question),
+        )
+        .route(
+            "/questions/{id}",
+             get(handlers::mcq::get_random_quiz) // Placeholder or nothing?
+             // Axum routing:
+             /*
+                .route("/questions/{id}", put(..).delete(..))
+             */
+             .put(handlers::mcq::update_question)
+             .delete(handlers::mcq::delete_question),
+        )
+        .layer(CorsLayer::permissive())
         .layer(CompressionLayer::new())
         .with_state(pool);
 

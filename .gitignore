@@ -4,3 +4,11 @@ seerah.db
 seerah.db-shm
 seerah.db-wal
 .env
+
+# Frontend
+node_modules
+.svelte-kit
+.npm
+build/
+dist/
+.DS_Store

@@ -1,7 +1,7 @@
 use crate::{
     auth::ApiKey,
     db::DbPool,
-    models::{CreateEvent, Era, Event},
+    models::{CreateEvent, UpdateEvent, Era, Event},
 };
 use axum::{
     Json,
@@ -100,6 +100,103 @@ pub async fn create_event(
         Err(e) => {
             tracing::error!("Failed to create event: {:?}", e);
             (StatusCode::INTERNAL_SERVER_ERROR, "Failed to create event").into_response()
+        }
+    }
+}
+
+#[utoipa::path(
+    put,
+    path = "/events/{id}",
+    request_body = UpdateEvent,
+    params(
+        ("id" = i64, Path, description = "Event ID"),
+        ("x-api-key" = String, Header, description = "API Key for authentication")
+    ),
+    responses(
+        (status = 200, description = "Event updated successfully", body = Event),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Event not found"),
+        (status = 500, description = "Internal Server Error")
+    )
+)]
+pub async fn update_event(
+    State(pool): State<DbPool>,
+    Path(id): Path<i64>,
+    _api_key: ApiKey,
+    Json(payload): Json<UpdateEvent>,
+) -> impl IntoResponse {
+    /* 
+       Previously planned dynamic query builder logic removed in favor of COALESCE.
+       Unused variables cleaned up.
+    */
+    
+    let result = sqlx::query_as::<_, Event>(
+        r#"
+        UPDATE events 
+        SET 
+            era_id = COALESCE(?, era_id),
+            title = COALESCE(?, title),
+            description = COALESCE(?, description),
+            event_date = COALESCE(?, event_date),
+            source = COALESCE(?, source)
+        WHERE id = ?
+        RETURNING *
+        "#
+    )
+    .bind(payload.era_id)
+    .bind(payload.title)
+    .bind(payload.description)
+    .bind(payload.event_date)
+    .bind(payload.source)
+    .bind(id)
+    .fetch_optional(&pool)
+    .await;
+
+    match result {
+        Ok(Some(event)) => (StatusCode::OK, Json(event)).into_response(),
+        Ok(None) => (StatusCode::NOT_FOUND, "Event not found").into_response(),
+        Err(e) => {
+            tracing::error!("Failed to update event: {:?}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, "Failed to update event").into_response()
+        }
+    }
+}
+
+#[utoipa::path(
+    delete,
+    path = "/events/{id}",
+    params(
+        ("id" = i64, Path, description = "Event ID"),
+        ("x-api-key" = String, Header, description = "API Key for authentication")
+    ),
+    responses(
+        (status = 204, description = "Event deleted successfully"),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Event not found"), // SQLx execution result usually returns rows affected
+        (status = 500, description = "Internal Server Error")
+    )
+)]
+pub async fn delete_event(
+    State(pool): State<DbPool>,
+    Path(id): Path<i64>,
+    _api_key: ApiKey,
+) -> impl IntoResponse {
+    let result = sqlx::query("DELETE FROM events WHERE id = ?")
+        .bind(id)
+        .execute(&pool)
+        .await;
+
+    match result {
+        Ok(res) => {
+            if res.rows_affected() > 0 {
+                (StatusCode::NO_CONTENT, ()).into_response()
+            } else {
+                (StatusCode::NOT_FOUND, "Event not found").into_response()
+            }
+        }
+        Err(e) => {
+            tracing::error!("Failed to delete event: {:?}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, "Failed to delete event").into_response()
         }
     }
 }
