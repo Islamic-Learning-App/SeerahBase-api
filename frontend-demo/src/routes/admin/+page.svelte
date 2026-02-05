@@ -71,13 +71,26 @@
         resetEventForm();
     }
 
-    async function deleteEvent(id: number) {
-        if (
-            confirm("Are you sure? This will delete associated questions too.")
-        ) {
-            await api.deleteEvent(id);
+    // Delete Confirmation State
+    let showDeleteModal = $state(false);
+    let eventToDeleteId = $state<number | null>(null);
+
+    function confirmDelete(id: number) {
+        eventToDeleteId = id;
+        showDeleteModal = true;
+    }
+
+    async function proceedWithDelete() {
+        if (eventToDeleteId !== null) {
+            await api.deleteEvent(eventToDeleteId);
             await loadData();
+            cancelDelete();
         }
+    }
+
+    function cancelDelete() {
+        showDeleteModal = false;
+        eventToDeleteId = null;
     }
 
     // --- Question Handlers ---
@@ -216,7 +229,7 @@
                             >Edit</button
                         >
                         <button
-                            onclick={() => deleteEvent(event.id)}
+                            onclick={() => confirmDelete(event.id)}
                             class="text-red-400 hover:text-red-300"
                             >Delete</button
                         >
@@ -291,6 +304,40 @@
                 >
                     Save Question
                 </button>
+            </div>
+        </div>
+    {/if}
+
+    <!-- Delete Confirmation Modal -->
+    {#if showDeleteModal}
+        <div
+            class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity"
+            aria-hidden="true"
+        >
+            <div
+                class="bg-secondary border border-gray-700 rounded-xl p-6 max-w-sm w-full shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            >
+                <h3 class="text-xl font-bold text-light mb-4">
+                    Confirm Deletion
+                </h3>
+                <p class="text-gray-400 mb-6">
+                    Are you sure you want to delete this event? This action
+                    cannot be undone and will delete all associated questions.
+                </p>
+                <div class="flex justify-end space-x-4">
+                    <button
+                        onclick={cancelDelete}
+                        class="px-4 py-2 rounded text-gray-400 hover:text-white transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onclick={proceedWithDelete}
+                        class="px-4 py-2 rounded bg-red-600 text-white font-bold hover:bg-red-500 shadow-lg transition-colors"
+                    >
+                        Delete
+                    </button>
+                </div>
             </div>
         </div>
     {/if}

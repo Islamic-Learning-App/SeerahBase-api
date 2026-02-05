@@ -67,20 +67,19 @@
                 >
                 <span
                     class={`px-2 py-1 rounded text-xs font-bold ${
-                        currentQuestion.question.difficulty_level === "Hard"
+                        currentQuestion.difficulty_level === "Hard"
                             ? "bg-red-900 text-red-200"
-                            : currentQuestion.question.difficulty_level ===
-                                "Medium"
+                            : currentQuestion.difficulty_level === "Medium"
                               ? "bg-yellow-900 text-yellow-200"
                               : "bg-green-900 text-green-200"
                     }`}
                 >
-                    {currentQuestion.question.difficulty_level || "Medium"}
+                    {currentQuestion.difficulty_level || "Medium"}
                 </span>
             </div>
 
             <h2 class="text-2xl font-semibold mb-8 text-light leading-snug">
-                {currentQuestion.question.question_text}
+                {currentQuestion.question_text}
             </h2>
 
             <!-- Options -->
@@ -111,12 +110,12 @@
             <!-- Explanation & Next Button -->
             {#if revealed}
                 <div class="mt-8 pt-6 border-t border-gray-800 animate-fade-in">
-                    {#if currentQuestion.question.explanation}
+                    {#if currentQuestion.explanation}
                         <div class="mb-6 text-gray-400 text-sm">
                             <strong class="text-primary block mb-1"
                                 >Explanation:</strong
                             >
-                            {currentQuestion.question.explanation}
+                            {currentQuestion.explanation}
                         </div>
                     {/if}
 

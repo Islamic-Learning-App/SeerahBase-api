@@ -5,6 +5,11 @@
     let selectedEraId = $state<number | null>(null);
     let events = $state<any[]>([]);
     let loading = $state(true);
+    let sortOrder = $state<"asc" | "desc">("asc");
+
+    // Modal State
+    let showModal = $state(false);
+    let selectedEvent = $state<any>(null);
 
     $effect(() => {
         api.getEras().then((data) => {
@@ -22,10 +27,67 @@
         const data = await api.getEventsByEra(id);
         events = data;
     }
+
+    let sortedEvents = $derived(
+        [...events].sort((a, b) => {
+            const dateA = new Date(a.event_date || 0).getTime();
+            const dateB = new Date(b.event_date || 0).getTime();
+            return sortOrder === "asc" ? dateA - dateB : dateB - dateA;
+        }),
+    );
+
+    function toggleSort() {
+        sortOrder = sortOrder === "asc" ? "desc" : "asc";
+    }
+
+    function openModal(event: any) {
+        selectedEvent = event;
+        showModal = true;
+    }
+
+    function closeModal() {
+        showModal = false;
+        selectedEvent = null;
+    }
+
+    // Simple truncation helper
+    function truncate(text: string, length: number = 150) {
+        if (!text) return "";
+        // If text is short enough, render markdown (links active)
+        if (text.length <= length) {
+            return parseMarkdown(text);
+        }
+        // If text is long, truncate raw text to avoid breaking HTML tags from markdown
+        // The modal will show the full rendered markdown
+        return text.slice(0, length) + "...";
+    }
+
+    // Markdown Parser helper
+    function parseMarkdown(text: string) {
+        if (!text) return "";
+        // Replace [text](url) with <a href="url" ...>text</a>
+        return text.replace(
+            /\[([^\]]+)\]\(([^)]+)\)/g,
+            '<a href="$2" target="_blank" class="text-primary hover:text-yellow-300 underline">$1</a>',
+        );
+    }
 </script>
 
-<div class="space-y-8">
-    <h1 class="text-4xl font-bold text-primary">Historical Timeline</h1>
+<div class="space-y-8 relative">
+    <div class="flex justify-between items-center">
+        <h1 class="text-4xl font-bold text-primary">Historical Timeline</h1>
+        <button
+            onclick={toggleSort}
+            class="px-4 py-2 rounded-lg bg-dark border border-gray-700 hover:border-primary transition-colors flex items-center gap-2 text-sm"
+        >
+            <span
+                >Sort: {sortOrder === "asc"
+                    ? "Oldest First"
+                    : "Newest First"}</span
+            >
+            <span class="text-primary">{sortOrder === "asc" ? "↑" : "↓"}</span>
+        </button>
+    </div>
 
     {#if loading}
         <p class="text-gray-400 animate-pulse">Loading eras...</p>
@@ -49,12 +111,12 @@
 
         <!-- Events Timeline -->
         <div class="relative border-l-2 border-gray-800 ml-4 space-y-12">
-            {#if events.length === 0}
+            {#if sortedEvents.length === 0}
                 <p class="ml-8 text-gray-500 italic">
                     No events found for this era.
                 </p>
             {:else}
-                {#each events as event}
+                {#each sortedEvents as event}
                     <div class="ml-8 relative group">
                         <!-- Dot -->
                         <div
@@ -62,7 +124,7 @@
                         ></div>
 
                         <div
-                            class="bg-secondary p-6 rounded-xl border border-gray-800 hover:border-gray-700 transition-all"
+                            class="bg-secondary p-6 rounded-xl border border-gray-800 hover:border-gray-700 transition-all shadow-md"
                         >
                             <span
                                 class="text-sm font-mono text-primary bg-primary/10 px-2 py-1 rounded mb-2 inline-block"
@@ -72,9 +134,21 @@
                             <h3 class="text-2xl font-semibold text-light mb-2">
                                 {event.title}
                             </h3>
-                            <p class="text-gray-400 leading-relaxed">
-                                {event.description}
-                            </p>
+
+                            <!-- Truncated Description -->
+                            <div class="text-gray-400 leading-relaxed">
+                                {@html truncate(event.description, 150)}
+                            </div>
+
+                            {#if event.description && event.description.length > 150}
+                                <button
+                                    onclick={() => openModal(event)}
+                                    class="mt-3 text-sm text-primary hover:text-yellow-300 font-medium underline decoration-dotted underline-offset-4"
+                                >
+                                    Read More
+                                </button>
+                            {/if}
+
                             {#if event.source}
                                 <p
                                     class="text-xs text-gray-600 mt-4 border-t border-gray-800 pt-2"
@@ -86,6 +160,67 @@
                     </div>
                 {/each}
             {/if}
+        </div>
+    {/if}
+
+    <!-- Detail Modal -->
+    {#if showModal && selectedEvent}
+        <div
+            class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity"
+            onclick={closeModal}
+            aria-hidden="true"
+        >
+            <div
+                class="bg-secondary border border-gray-700 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl p-8 relative animate-in fade-in zoom-in-95 duration-200"
+                onclick={(e) => e.stopPropagation()}
+                aria-hidden="true"
+            >
+                <button
+                    onclick={closeModal}
+                    class="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
+                >
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-6 w-6"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12"
+                        />
+                    </svg>
+                </button>
+
+                <span
+                    class="text-sm font-mono text-primary bg-primary/10 px-2 py-1 rounded mb-4 inline-block"
+                >
+                    {selectedEvent.event_date || "Unknown Date"}
+                </span>
+
+                <h2 class="text-3xl font-bold text-light mb-6">
+                    {selectedEvent.title}
+                </h2>
+
+                <div
+                    class="prose prose-invert prose-p:text-gray-300 prose-a:text-primary prose-a:underline max-w-none"
+                >
+                    {@html parseMarkdown(selectedEvent.description)}
+                </div>
+
+                {#if selectedEvent.source}
+                    <div class="mt-8 pt-4 border-t border-gray-800">
+                        <p class="text-sm text-gray-500">
+                            Source: <span class="text-gray-400 italic"
+                                >{selectedEvent.source}</span
+                            >
+                        </p>
+                    </div>
+                {/if}
+            </div>
         </div>
     {/if}
 </div>

@@ -181,14 +181,47 @@ pub async fn delete_event(
     Path(id): Path<i64>,
     _api_key: ApiKey,
 ) -> impl IntoResponse {
+    let mut tx = match pool.begin().await {
+        Ok(tx) => tx,
+        Err(e) => {
+            tracing::error!("Failed to start transaction: {:?}", e);
+            return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to start transaction").into_response();
+        }
+    };
+
+    // 1. Delete Options for Questions related to this event
+    if let Err(e) = sqlx::query("DELETE FROM options WHERE question_id IN (SELECT id FROM questions WHERE event_id = ?)")
+        .bind(id)
+        .execute(&mut *tx)
+        .await
+    {
+        tracing::error!("Failed to delete options: {:?}", e);
+        return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to delete dependent options").into_response();
+    }
+
+    // 2. Delete Questions related to this event
+    if let Err(e) = sqlx::query("DELETE FROM questions WHERE event_id = ?")
+        .bind(id)
+        .execute(&mut *tx)
+        .await
+    {
+        tracing::error!("Failed to delete questions: {:?}", e);
+        return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to delete dependent questions").into_response();
+    }
+
+    // 3. Delete the Event itself
     let result = sqlx::query("DELETE FROM events WHERE id = ?")
         .bind(id)
-        .execute(&pool)
+        .execute(&mut *tx)
         .await;
 
     match result {
         Ok(res) => {
             if res.rows_affected() > 0 {
+                if let Err(e) = tx.commit().await {
+                     tracing::error!("Failed to commit transaction: {:?}", e);
+                     return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to commit transaction").into_response();
+                }
                 (StatusCode::NO_CONTENT, ()).into_response()
             } else {
                 (StatusCode::NOT_FOUND, "Event not found").into_response()

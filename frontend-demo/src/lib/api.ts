@@ -1,12 +1,12 @@
-export const API_BASE_URL = 'http://localhost:3000';
+export const API_BASE_URL = 'http://127.0.0.1:3000';
 
 export async function fetchAPI(endpoint: string, options: RequestInit = {}) {
     const url = `${API_BASE_URL}${endpoint}`;
     const headers = {
         'Content-Type': 'application/json',
         ...options.headers,
-        // Add API Key if implemented later
-        'x-api-key': 'your-api-key-if-needed',
+        // Add API Key
+        'x-api-key': 'seerah_secret_key_123',
     };
 
     const response = await fetch(url, { ...options, headers });
