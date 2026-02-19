@@ -9,7 +9,7 @@
   let loading = true;
   let error = "";
 
-  $: eventId = parseInt($page.params.id);
+  $: eventId = parseInt($page.params.id || "0");
 
   onMount(async () => {
     try {
