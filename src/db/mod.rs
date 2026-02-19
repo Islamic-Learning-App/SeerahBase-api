@@ -12,7 +12,8 @@ pub async fn init_db() -> Result<DbPool, Box<dyn std::error::Error>> {
     let db = if let Ok(db_file) = env::var("DB_FILE") {
         println!("Initializing embedded replica with file: {}", db_file);
         Builder::new_remote_replica(db_file, url, token)
-            .sync_interval(std::time::Duration::from_secs(60)) // Sync every minute
+            .sync_interval(std::time::Duration::from_secs(60))
+            .sync_protocol(libsql::SyncProtocol::V2)
             .build()
             .await?
     } else {
