@@ -23,16 +23,16 @@ use crate::models::*;
 #[derive(OpenApi)]
 #[openapi(
     paths(
-        handlers::history::get_categories,
-        handlers::history::create_category,
-        handlers::history::update_category,
-        handlers::history::delete_category,
-        handlers::history::get_events_by_category,
-        handlers::history::get_all_events,
-        handlers::history::create_event,
-        handlers::history::update_event,
-        handlers::history::delete_event,
-        handlers::history::get_event_by_id,
+        handlers::categories::get_categories,
+        handlers::categories::create_category,
+        handlers::categories::update_category,
+        handlers::categories::delete_category,
+        handlers::events::get_events_by_category,
+        handlers::events::get_all_events,
+        handlers::events::create_event,
+        handlers::events::update_event,
+        handlers::events::delete_event,
+        handlers::events::get_event_by_id,
         handlers::mcq::get_questions_by_event,
         handlers::mcq::get_random_quiz,
         handlers::mcq::create_question,
@@ -41,7 +41,7 @@ use crate::models::*;
     components(
         schemas(
             Category, CreateCategory, UpdateCategory,
-            Event, CreateEvent, UpdateEvent, 
+            Event, CreateEvent, UpdateEvent,
             Question, QuestionWithOptions, AnswerOption, CreateQuestion, CreateOption,
             PaginatedResponse<Event>, PaginationParams
         )
@@ -66,7 +66,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Initialize Libsql DB (Remote)
     let db = db::init_db().await?;
-    
+
     // Ensure API_KEY is set
     if std::env::var("API_KEY").is_err() {
         tracing::warn!("API_KEY not set in environment");
@@ -74,17 +74,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let app = Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
-        .route("/categories", get(handlers::history::get_categories).post(handlers::history::create_category))
-        .route("/categories/{id}", axum::routing::put(handlers::history::update_category).delete(handlers::history::delete_category))
-        .route("/categories/{id}/events", get(handlers::history::get_events_by_category))
-        .route("/events", get(handlers::history::get_all_events).post(handlers::history::create_event))
-        .route("/events/{id}", get(handlers::history::get_event_by_id).put(handlers::history::update_event).delete(handlers::history::delete_event))
+        .route(
+            "/categories",
+            get(handlers::categories::get_categories).post(handlers::categories::create_category),
+        )
+        .route(
+            "/categories/{id}",
+            axum::routing::put(handlers::categories::update_category)
+                .delete(handlers::categories::delete_category),
+        )
+        .route(
+            "/categories/{id}/events",
+            get(handlers::events::get_events_by_category),
+        )
+        .route(
+            "/events",
+            get(handlers::events::get_all_events).post(handlers::events::create_event),
+        )
+        .route(
+            "/events/{id}",
+            get(handlers::events::get_event_by_id)
+                .put(handlers::events::update_event)
+                .delete(handlers::events::delete_event),
+        )
         .route("/events/{id}/quiz", get(handlers::mcq::get_questions_by_event))
         .route("/quiz/random", get(handlers::mcq::get_random_quiz))
         .route("/questions", post(handlers::mcq::create_question))
         .route("/questions/{id}", delete(handlers::mcq::delete_question))
-        .route("/health", get(|| async { "alive" })) // return alive
-        .route("/", get(|| async { "alive" })) // return alive
+        .route("/health", get(|| async { "alive" }))
+        .route("/", get(|| async { "alive" }))
         .layer(
             CorsLayer::new()
                 .allow_origin(Any)

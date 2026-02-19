@@ -5,7 +5,6 @@ seerah.db-shm
 seerah.db-wal
 seerah.db-info
 seerah.db-lock
-.env
 
 # Frontend
 node_modules
@@ -16,3 +15,6 @@ dist/
 .DS_Store
 
 cloudflared
+config.bat
+temp_auto_push.bat
+temp_interactive_push.bat
