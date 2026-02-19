@@ -56,8 +56,9 @@ export interface PaginatedResponse<T> {
 // Ensure API_KEY is handled securely. Ideally from env or server-side only for mutations.
 // For demo, we might use a hardcoded key or fetch from an endpoint if needed, but usually strictly server-side.
 // Here we assume client might need it for restricted actions if not using session auth.
+// TODO: Replace with real authentication (JWT/Session) for production.
 const API_URL = "http://localhost:3000"; 
-const API_KEY = "seerah-api-key-123"; // TODO: Move to env or use proper auth
+const API_KEY = "seerah-api-key-123";
 
 async function fetchAPI(endpoint: string, options?: RequestInit) {
   const res = await fetch(`${API_URL}${endpoint}`, {

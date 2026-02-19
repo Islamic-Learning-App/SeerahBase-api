@@ -80,9 +80,21 @@
 </script>
 
 <div class="space-y-8">
-  <h1 class="text-3xl font-bold text-primary border-b border-white/10 pb-4">
-    Admin Dashboard
-  </h1>
+  <div class="flex justify-between items-center border-b border-white/10 pb-4">
+    <h1 class="text-3xl font-bold text-primary">Admin Dashboard</h1>
+    <button
+      on:click={loadData}
+      class="px-4 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors flex items-center gap-2"
+      disabled={loading}
+    >
+      {#if loading}
+        <span class="animate-spin">↻</span>
+      {:else}
+        <span>↻</span>
+      {/if}
+      Refresh Data
+    </button>
+  </div>
 
   <div class="flex gap-4">
     <button
@@ -165,8 +177,11 @@
         </h2>
         <form on:submit|preventDefault={handleSubmitEvent} class="space-y-4">
           <div>
-            <label class="block text-sm mb-1 text-gray-400">Category</label>
+            <label for="event-category" class="block text-sm mb-1 text-gray-400"
+              >Category</label
+            >
             <select
+              id="event-category"
               bind:value={eventForm.categoryId}
               class="w-full bg-black/40 border border-white/10 rounded p-2 text-white focus:border-primary outline-none"
             >
@@ -178,10 +193,11 @@
           </div>
 
           <div>
-            <label class="block text-sm mb-1 text-gray-400"
+            <label for="event-title" class="block text-sm mb-1 text-gray-400"
               >Title (English)</label
             >
             <input
+              id="event-title"
               bind:value={eventForm.title}
               class="w-full bg-black/40 border border-white/10 rounded p-2 text-white focus:border-primary outline-none"
               required
@@ -189,20 +205,24 @@
           </div>
 
           <div>
-            <label class="block text-sm mb-1 text-gray-400"
+            <label for="event-title-bn" class="block text-sm mb-1 text-gray-400"
               >Title (Bengali)</label
             >
             <input
+              id="event-title-bn"
               bind:value={eventForm.titleBn}
               class="w-full bg-black/40 border border-white/10 rounded p-2 text-white focus:border-primary outline-none"
             />
           </div>
 
           <div>
-            <label class="block text-sm mb-1 text-gray-400"
+            <label
+              for="event-description"
+              class="block text-sm mb-1 text-gray-400"
               >Description (Markdown supported)</label
             >
             <textarea
+              id="event-description"
               bind:value={eventForm.description}
               class="w-full bg-black/40 border border-white/10 rounded p-2 text-white h-32 focus:border-primary outline-none"
               required
@@ -210,10 +230,13 @@
           </div>
 
           <div>
-            <label class="block text-sm mb-1 text-gray-400"
+            <label
+              for="event-description-bn"
+              class="block text-sm mb-1 text-gray-400"
               >Description (Bengali)</label
             >
             <textarea
+              id="event-description-bn"
               bind:value={eventForm.descriptionBn}
               class="w-full bg-black/40 border border-white/10 rounded p-2 text-white h-24 focus:border-primary outline-none"
             ></textarea>
@@ -221,17 +244,21 @@
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm mb-1 text-gray-400"
+              <label for="event-date" class="block text-sm mb-1 text-gray-400"
                 >Date (e.g., 610 CE)</label
               >
               <input
+                id="event-date"
                 bind:value={eventForm.eventDate}
                 class="w-full bg-black/40 border border-white/10 rounded p-2 text-white focus:border-primary outline-none"
               />
             </div>
             <div>
-              <label class="block text-sm mb-1 text-gray-400">Source</label>
+              <label for="event-source" class="block text-sm mb-1 text-gray-400"
+                >Source</label
+              >
               <input
+                id="event-source"
                 bind:value={eventForm.source}
                 class="w-full bg-black/40 border border-white/10 rounded p-2 text-white focus:border-primary outline-none"
               />
@@ -239,8 +266,11 @@
           </div>
 
           <div>
-            <label class="block text-sm mb-1 text-gray-400">Image URL</label>
+            <label for="event-image" class="block text-sm mb-1 text-gray-400"
+              >Image URL</label
+            >
             <input
+              id="event-image"
               bind:value={eventForm.imageUrl}
               class="w-full bg-black/40 border border-white/10 rounded p-2 text-white focus:border-primary outline-none"
               placeholder="https://..."
