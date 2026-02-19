@@ -1,59 +1,102 @@
-<script lang="ts">
-    import { onMount } from "svelte";
+<script>
+  import { onMount } from "svelte";
+  import { fade } from "svelte/transition";
 
-    // Placeholder for simple animation logic if needed
+  let visible = false;
+
+  onMount(() => {
+    visible = true;
+  });
 </script>
 
 <div
-    class="flex flex-col items-center justify-center py-20 text-center space-y-8"
+  class="flex flex-col items-center justify-center min-h-[80vh] text-center space-y-12"
 >
-    <h1
-        class="text-6xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent animate-pulse"
-    >
-        Explore the Seerah
-    </h1>
-    <p class="text-xl text-gray-400 max-w-2xl">
-        Immerse yourself in the life of the Prophet (PBUH). Navigate through
-        historical eras, test your knowledge with interactive quizzes, and
-        contribute to the growing database.
-    </p>
-
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl mt-10">
-        <a
-            href="/eras"
-            class="group p-8 bg-secondary rounded-2xl border border-gray-800 hover:border-primary transition-all hover:shadow-[0_0_20px_rgba(212,175,55,0.2)]"
+  {#if visible}
+    <div in:fade={{ duration: 1000, delay: 200 }} class="space-y-6">
+      <h1 class="text-6xl md:text-8xl font-bold tracking-tighter">
+        <span
+          class="bg-gradient-to-r from-primary via-yellow-200 to-primary bg-clip-text text-transparent bg-300% animate-gradient"
         >
-            <div class="text-4xl mb-4">📜</div>
-            <h2 class="group-hover:text-primary transition-colors">Timeline</h2>
-            <p class="text-sm text-gray-500">
-                Explore events chronologically through different eras.
-            </p>
-        </a>
+          Explore the Seerah
+        </span>
+      </h1>
 
-        <a
-            href="/quiz"
-            class="group p-8 bg-secondary rounded-2xl border border-gray-800 hover:border-primary transition-all hover:shadow-[0_0_20px_rgba(212,175,55,0.2)]"
-        >
-            <div class="text-4xl mb-4">🧠</div>
-            <h2 class="group-hover:text-primary transition-colors">
-                Take a Quiz
-            </h2>
-            <p class="text-sm text-gray-500">
-                Test your knowledge with random questions.
-            </p>
-        </a>
-
-        <a
-            href="/admin"
-            class="group p-8 bg-secondary rounded-2xl border border-gray-800 hover:border-primary transition-all hover:shadow-[0_0_20px_rgba(212,175,55,0.2)]"
-        >
-            <div class="text-4xl mb-4">⚙️</div>
-            <h2 class="group-hover:text-primary transition-colors">
-                Manage Data
-            </h2>
-            <p class="text-sm text-gray-500">
-                Add or edit events and questions (Admin).
-            </p>
-        </a>
+      <p class="text-xl md:text-2xl text-gray-400 max-w-2xl mx-auto font-light">
+        A journey through the life of Prophet Muhammad (ﷺ) and the history of
+        Islam.
+      </p>
     </div>
+
+    <div
+      in:fade={{ duration: 1000, delay: 600 }}
+      class="flex flex-wrap gap-6 justify-center"
+    >
+      <a
+        href="/categories"
+        class="group relative px-8 py-4 bg-primary text-black font-bold rounded-full overflow-hidden transition-transform hover:scale-105"
+      >
+        <span class="relative z-10 flex items-center gap-2">
+          <span>🕌</span> Explore Categories
+        </span>
+        <div
+          class="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform"
+        ></div>
+      </a>
+
+      <a
+        href="/quiz"
+        class="px-8 py-4 bg-white/10 border border-white/10 rounded-full hover:bg-white/20 transition-all hover:scale-105 backdrop-blur-sm"
+      >
+        Test Your Knowledge &rarr;
+      </a>
+    </div>
+
+    <div
+      in:fade={{ duration: 1000, delay: 1000 }}
+      class="grid grid-cols-1 md:grid-cols-3 gap-8 text-left max-w-4xl w-full mt-12 bg-white/5 p-8 rounded-2xl border border-white/5"
+    >
+      <div class="space-y-2">
+        <div class="text-3xl">📅</div>
+        <h3 class="font-bold text-white">Interactive Timeline</h3>
+        <p class="text-sm text-gray-400">
+          Navigate through history chronologically or by major events.
+        </p>
+      </div>
+      <div class="space-y-2">
+        <div class="text-3xl">📚</div>
+        <h3 class="font-bold text-white">20+ Categories</h3>
+        <p class="text-sm text-gray-400">
+          Detailed sections on Prophets, Battles, Revelations, and more.
+        </p>
+      </div>
+      <div class="space-y-2">
+        <div class="text-3xl">🧠</div>
+        <h3 class="font-bold text-white">Knowledge Quiz</h3>
+        <p class="text-sm text-gray-400">
+          Test what you've learned with our interactive MCQ system.
+        </p>
+      </div>
+    </div>
+  {/if}
 </div>
+
+<style>
+  .bg-300% {
+    background-size: 300%;
+  }
+  .animate-gradient {
+    animation: gradient 8s ease infinite;
+  }
+  @keyframes gradient {
+    0% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0% 50%;
+    }
+  }
+</style>
