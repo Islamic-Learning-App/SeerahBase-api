@@ -1,6 +1,6 @@
 use crate::{
     auth::ApiKey,
-    db::DbPool,
+    db::{DbPool, sync_db},
     errors::AppError,
     models::{
         Category, CreateCategory, CreateEvent, Event, PaginatedResponse, PaginationParams,
@@ -98,6 +98,7 @@ pub async fn create_category(
 
     if let Some(row) = rows.next().await? {
         let category = Category::from_row(&row)?;
+        sync_db(&db).await;
         Ok((StatusCode::CREATED, Json(category)))
     } else {
         Err(AppError::InternalServerError("Failed to return created category".to_string()))
@@ -158,6 +159,7 @@ pub async fn update_category(
 
     if let Some(row) = rows.next().await? {
         let category = Category::from_row(&row)?;
+        sync_db(&db).await;
         Ok(Json(category))
     } else {
         Err(AppError::NotFound("Category not found".to_string()))
@@ -197,6 +199,7 @@ pub async fn delete_category(
     let result = conn.execute("DELETE FROM categories WHERE id = ?1", libsql::params![id]).await?;
 
     if result > 0 {
+        sync_db(&db).await;
         Ok((StatusCode::NO_CONTENT, ()))
     } else {
         Err(AppError::NotFound("Category not found".to_string()))
@@ -321,6 +324,7 @@ pub async fn create_event(
 
     if let Some(row) = rows.next().await? {
         let event = Event::from_row(&row)?;
+        sync_db(&db).await;
         Ok((StatusCode::CREATED, Json(event)))
     } else {
         Err(AppError::InternalServerError("Failed to return created event".to_string()))
@@ -389,6 +393,7 @@ pub async fn update_event(
 
     if let Some(row) = rows.next().await? {
         let event = Event::from_row(&row)?;
+        sync_db(&db).await;
         Ok(Json(event))
     } else {
         Err(AppError::NotFound("Event not found".to_string()))
@@ -422,6 +427,7 @@ pub async fn delete_event(
     let result = conn.execute("DELETE FROM events WHERE id = ?1", libsql::params![id]).await?;
 
     if result > 0 {
+        sync_db(&db).await;
         Ok((StatusCode::NO_CONTENT, ()))
     } else {
         Err(AppError::NotFound("Event not found".to_string()))

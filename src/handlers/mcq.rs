@@ -1,6 +1,6 @@
 use crate::{
     auth::ApiKey,
-    db::DbPool,
+    db::{DbPool, sync_db},
     errors::AppError,
     models::{
         AnswerOption, CreateQuestion, Question, QuestionWithOptions,
@@ -195,6 +195,8 @@ pub async fn create_question(
         }
     }
 
+    sync_db(&db).await;
+
     Ok((StatusCode::CREATED, Json(QuestionWithOptions {
         question,
         options: created_options,
@@ -225,6 +227,7 @@ pub async fn delete_question(
     let result = conn.execute("DELETE FROM questions WHERE id = ?1", libsql::params![id]).await?;
 
     if result > 0 {
+        sync_db(&db).await;
         Ok((StatusCode::NO_CONTENT, ()))
     } else {
         Err(AppError::NotFound("Question not found".to_string()))

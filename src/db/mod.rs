@@ -4,17 +4,28 @@ use std::sync::Arc;
 
 pub type DbPool = Arc<Database>;
 
+/// Manually sync the embedded replica after a write operation.
+/// Safe to call on remote-only connections (it's a no-op).
+pub async fn sync_db(db: &Database) {
+    if let Err(e) = db.sync().await {
+        eprintln!("Sync warning: {}", e);
+    }
+}
+
 async fn try_embedded_replica(
     db_file: &str,
     url: &str,
     token: &str,
 ) -> Result<Database, Box<dyn std::error::Error>> {
     let db = Builder::new_remote_replica(db_file, url.to_string(), token.to_string())
-        .sync_interval(std::time::Duration::from_secs(300))
+        // No sync_interval — we sync manually after writes only
         .sync_protocol(libsql::SyncProtocol::V2)
         .build()
         .await?;
-    println!("Embedded replica ready at: {}", db_file);
+
+    // Initial sync to pull latest data
+    db.sync().await?;
+    println!("Embedded replica ready at: {} (manual sync mode)", db_file);
     Ok(db)
 }
 
@@ -40,8 +51,7 @@ pub async fn init_db() -> Result<DbPool, Box<dyn std::error::Error>> {
     }
 
     // 3) Last resort: remote-only (every query hits network)
-    eprintln!("All replica paths failed, using remote-only (slower reads)");
+    eprintln!("All replica paths failed, using remote-only");
     let db = Builder::new_remote(url, token).build().await?;
     Ok(Arc::new(db))
 }
-
