@@ -1,128 +1,123 @@
 # SeerahBase API
 
-Islamic History (Seerah) and MCQs, built with **Rust** and **Axum**.
+Islamic History (Seerah) and MCQs, built with **Rust**, **Axum**, and **Turso** (libsql).
 
-## Tech Stack
-- **Language**: Rust
-- **Framework**: Axum
-- **Database**: SQLite (via SQLx)
+## 🚀 Tech Stack
+
+### Backend
+
+- **Language**: Rust (2024 edition)
+- **Framework**: Axum 0.8
+- **Database**: Turso (libsql) with **Embedded Replica** support
 - **Documentation**: OpenAPI (utoipa)
 - **Compression**: Gzip/Brotli (tower-http)
 
-## Setup & Run
+### Frontend
+
+- **Framework**: SvelteKit + Vite
+- **Styling**: TailwindCSS
+- **Package Manager**: pnpm
+
+---
+
+## 🛠️ Setup & Run
 
 ### 1. Prerequisites
-- Rust & Cargo installed.
 
-### 2. Initialize Database
-Creates `seerah.db` and applies schema.
-```bash
-cargo run --bin init_db
+- Rust & Cargo installed.
+- `pnpm` installed (`npm install -g pnpm`).
+- A [Turso](https://turso.tech) database.
+
+### 2. Configure Environment
+
+Create a `.env` file in the root directory:
+
+```env
+# Backend Config
+TURSO_DATABASE_URL="libsql://your-db-name.turso.io"
+TURSO_AUTH_TOKEN="your-turso-auth-token"
+API_KEY="your-secret-api-key"
+RUST_LOG="info"
+
+# Optional: Enable Embedded Replica (Local Read Cache)
+DB_FILE="seerah.db"
 ```
 
-### 3. Seed Data
-Populates database with content (Eras, Events, MCQs).
+_Note: If `DB_FILE` is set, the app will create a local SQLite file that syncs with Turso for fast, zero-cost reads._
+
+### 3. Initialize & Seed Database
+
+run the seeder to apply the schema and populate initial categories, events, and questions.
+
 ```bash
 cargo run --bin seed_db
 ```
 
-### 4. Run Server
+_(Note: `init_db` is deprecated; `seed_db` handles schema creation now)_
+
+### 4. Run Backend Server
+
 Starts the API on `http://localhost:3000`.
+
 ```bash
 cargo run --bin SeerahBase-api
 ```
 
-### Docker (Production)
-Build and run the container:
+Access Swagger UI at **[http://localhost:3000/swagger-ui/](http://localhost:3000/swagger-ui/)**.
+
+### 5. Run Frontend
+
+Navigate to the frontend directory and start the dev server:
+
+```bash
+cd frontend-demo
+pnpm install
+pnpm dev
+# App runs at http://localhost:5173
+```
+
+---
+
+## 🐳 Docker (Production)
+
+Build and run the container. The Dockerfile is optimized for Turso.
+
 ```bash
 # Build image
 docker build -t seerahbase-api .
 
-# Run with data volume
-docker run -p 3000:3000 -v $(pwd)/data:/app/data seerahbase-api
+# Run container (pass env vars)
+docker run -p 3000:3000 --env-file .env seerahbase-api
 ```
-*(Note: You may need to create the `data` directory locally first)*
 
-## API Documentation
-Interactive Swagger UI is available at:
-**[http://localhost:3000/swagger-ui/](http://localhost:3000/swagger-ui/)**
+---
 
-## Endpoints
+## 📚 API Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/eras` | List all history periods |
-| GET | `/eras/{id}/events` | List events in a specific period |
-| GET | `/events` | List all events |
-| GET | `/questions/event/{id}` | Get MCQs for a specific event |
-| GET | `/questions/random` | Get a random quiz (5 questions) |
+| Method | Endpoint                  | Description                                  |
+| ------ | ------------------------- | -------------------------------------------- |
+| GET    | `/categories`             | List all categories (Eras, Prophets, Topics) |
+| GET    | `/categories/{id}/events` | List events in a specific category           |
+| GET    | `/events`                 | List all events (paginated)                  |
+| GET    | `/events/{id}`            | Get items details                            |
+| GET    | `/events/{id}/quiz`       | Get MCQs for a specific event                |
+| GET    | `/quiz/random`            | Get a random quiz (5 questions)              |
 
-## Project Structure
-- `src/main.rs` - App entry point & router configuration.
-- `src/handlers/` - API request handlers.
-- `src/models/` - Database structs & OpenAPI schemas.
-- `src/db/` - Database connection pool.
-- `schema.sql` - Database schema definition.
+---
 
-## Architecture
+## 🏗️ Architecture
 
 ```mermaid
 graph TD
-    User[User / Client] -->|HTTP Request| API[Axum API Server]
-    API -->|Validation & Logic| Handlers[Request Handlers]
-    Handlers -->|Query| DB[(SQLite Database)]
-    DB -->|Result| Handlers
-    Handlers -->|JSON Response| API
-    API -->|Compressed JSON| User
-    
-    subgraph "Infrastructure"
-        API
-        DB
+    User[User / Frontend] -->|HTTP/JSON| API[Axum API Server]
+    API -->|Validation| Handlers
+
+    subgraph "Data Layer"
+        Handlers -->|Read (Fast)| LocalDB[(Local Replica)]
+        Handlers -->|Write (Sync)| LocalDB
+        LocalDB <-->|Background Sync| RemoteDB[(Turso Cloud)]
     end
-```
 
-## API Response Codes
-
-| Status Code | Description |
-|-------------|-------------|
-| **200 OK** | Request processed successfully. Returns requested data. |
-| **404 Not Found** | The requested resource (Era, Event, or Question) does not exist. |
-| **500 Internal Server Error** | Unexpected server-side error. |
-
-### Example Responses
-
-**Success (200 OK) - Get Eras:**
-```json
-[
-  {
-    "id": 1,
-    "name": "মাক্কী জীবন",
-    "description": "রাসূল (সাঃ) এর মক্কা জীবন",
-    "start_date": "610-01-01",
-    "end_date": "622-01-01"
-  }
-]
-```
-
-**Success (200 OK) - Get Random Quiz:**
-```json
-[
-  {
-    "id": 1,
-    "question_text": "প্রথম ওহী কোথায় নাজিল হয়েছিল?",
-    "difficulty_level": "Medium",
-    "options": [
-      {
-        "id": 1,
-        "option_text": "হেরা গুহায়",
-        "is_correct": true
-      },
-      {
-        "id": 2,
-        "option_text": "সাওর গুহায়",
-        "is_correct": false
-      }
-    ]
-  }
-]
+    Handlers -->|Response| API
+    API -->|Compressed JSON| User
 ```
