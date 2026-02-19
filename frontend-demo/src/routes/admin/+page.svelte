@@ -1,344 +1,297 @@
 <script lang="ts">
-    import { api } from "$lib/api";
+  import { onMount } from "svelte";
+  import { api, type Event, type Category } from "$lib/api";
 
-    let activeTab = $state("events"); // 'events' | 'questions'
-    let events = $state<any[]>([]);
-    let eras = $state<any[]>([]);
+  let activeTab: "events" | "questions" = "events";
 
-    // Event Form State
-    let editingEventId = $state<number | null>(null);
-    let eventForm = $state({
-        title: "",
-        description: "",
-        era_id: "",
-        event_date: "",
-        source: "",
-    });
+  // Data
+  let events: Event[] = [];
+  let categories: Category[] = [];
+  let loading = true;
 
-    // Question Form State
-    let questionForm = $state({
-        event_id: "",
-        question_text: "",
-        explanation: "",
-        difficulty_level: "Medium",
-        options: [
-            { option_text: "", is_correct: false },
-            { option_text: "", is_correct: false },
-            { option_text: "", is_correct: false },
-            { option_text: "", is_correct: false },
-        ],
-    });
+  // Forms
+  let eventForm: Partial<Event> = { title: "", description: "" };
+  let editingEventId: number | null = null;
 
-    $effect(() => {
-        loadData();
-    });
+  onMount(async () => {
+    await loadData();
+  });
 
-    async function loadData() {
-        eras = await api.getEras();
-        events = await api.getAllEvents();
+  async function loadData() {
+    loading = true;
+    try {
+      const [e, c] = await Promise.all([
+        api.getAllEvents(1, 100),
+        api.getCategories(),
+      ]);
+      events = e.data;
+      categories = c;
+    } catch (err) {
+      console.error(err);
+      alert("Failed to load data");
+    } finally {
+      loading = false;
     }
+  }
 
-    // --- Event Handlers ---
+  async function handleSubmitEvent() {
+    try {
+      // Basic validation
+      if (!eventForm.categoryId) {
+        alert("Please select a category");
+        return;
+      }
 
-    function resetEventForm() {
-        editingEventId = null;
-        eventForm = {
-            title: "",
-            description: "",
-            era_id: "",
-            event_date: "",
-            source: "",
-        };
+      if (editingEventId) {
+        await api.updateEvent(editingEventId, eventForm);
+      } else {
+        await api.createEvent(eventForm);
+      }
+      await loadData();
+      resetEventForm();
+    } catch (err) {
+      console.error(err);
+      alert("Error saving event");
     }
+  }
 
-    function editEvent(event: any) {
-        editingEventId = event.id;
-        eventForm = { ...event, era_id: event.era_id || "" };
+  async function deleteEvent(id: number) {
+    if (!confirm("Are you sure? This will delete all related questions too."))
+      return;
+    try {
+      await api.deleteEvent(id);
+      await loadData();
+    } catch (err) {
+      console.error(err);
+      alert("Error deleting event");
     }
+  }
 
-    async function saveEvent() {
-        const payload = {
-            ...eventForm,
-            era_id: eventForm.era_id ? Number(eventForm.era_id) : null,
-        };
+  function editEvent(event: Event) {
+    editingEventId = event.id;
+    eventForm = { ...event };
+    activeTab = "events";
+  }
 
-        if (editingEventId) {
-            await api.updateEvent(editingEventId, payload);
-        } else {
-            await api.createEvent(payload);
-        }
-        await loadData();
-        resetEventForm();
-    }
-
-    // Delete Confirmation State
-    let showDeleteModal = $state(false);
-    let eventToDeleteId = $state<number | null>(null);
-
-    function confirmDelete(id: number) {
-        eventToDeleteId = id;
-        showDeleteModal = true;
-    }
-
-    async function proceedWithDelete() {
-        if (eventToDeleteId !== null) {
-            await api.deleteEvent(eventToDeleteId);
-            await loadData();
-            cancelDelete();
-        }
-    }
-
-    function cancelDelete() {
-        showDeleteModal = false;
-        eventToDeleteId = null;
-    }
-
-    // --- Question Handlers ---
-
-    async function saveQuestion() {
-        if (!questionForm.event_id) {
-            alert("Please select an event.");
-            return;
-        }
-
-        const payload = {
-            ...questionForm,
-            event_id: Number(questionForm.event_id),
-            options: questionForm.options.filter((o) => o.option_text), // Filter empty? Or just send all.
-        };
-
-        // Ensure one correct answer?
-        if (!questionForm.options.some((o) => o.is_correct)) {
-            alert("Please mark at least one correct option.");
-            return;
-        }
-
-        await api.createQuestion(payload);
-        alert("Question Created!");
-        // Reset form
-        questionForm = {
-            event_id: questionForm.event_id, // Keep event selected
-            question_text: "",
-            explanation: "",
-            difficulty_level: "Medium",
-            options: [
-                { option_text: "", is_correct: false },
-                { option_text: "", is_correct: false },
-                { option_text: "", is_correct: false },
-                { option_text: "", is_correct: false },
-            ],
-        };
-    }
+  function resetEventForm() {
+    editingEventId = null;
+    eventForm = { title: "", description: "" };
+  }
 </script>
 
-<div class="space-y-6">
-    <div class="flex justify-between items-center">
-        <h1 class="text-4xl font-bold text-primary">Admin Dashboard</h1>
-        <div class="flex space-x-2 bg-secondary p-1 rounded-lg">
-            <button
-                onclick={() => (activeTab = "events")}
-                class="px-4 py-2 rounded-md transition-all {activeTab ===
-                'events'
-                    ? 'bg-primary text-secondary font-bold'
-                    : 'text-gray-400 hover:text-white'}"
-            >
-                Manage Events
-            </button>
-            <button
-                onclick={() => (activeTab = "questions")}
-                class="px-4 py-2 rounded-md transition-all {activeTab ===
-                'questions'
-                    ? 'bg-primary text-secondary font-bold'
-                    : 'text-gray-400 hover:text-white'}"
-            >
-                Add Questions
-            </button>
-        </div>
-    </div>
+<div class="space-y-8">
+  <h1 class="text-3xl font-bold text-primary border-b border-white/10 pb-4">
+    Admin Dashboard
+  </h1>
 
-    {#if activeTab === "events"}
-        <!-- Event Form -->
-        <div class="bg-secondary p-6 rounded-xl border border-gray-800">
-            <h2 class="text-xl font-bold text-light mb-4">
-                {editingEventId ? "Edit Event" : "Create New Event"}
-            </h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <input
-                    bind:value={eventForm.title}
-                    placeholder="Title"
-                    class="bg-dark border border-gray-700 p-3 rounded text-white"
-                />
-                <select
-                    bind:value={eventForm.era_id}
-                    class="bg-dark border border-gray-700 p-3 rounded text-white"
-                >
-                    <option value="">Select Era</option>
-                    {#each eras as era}
-                        <option value={era.id}>{era.name}</option>
-                    {/each}
-                </select>
-                <input
-                    bind:value={eventForm.event_date}
-                    placeholder="Event Date (e.g. 610 CE)"
-                    class="bg-dark border border-gray-700 p-3 rounded text-white"
-                />
-                <input
-                    bind:value={eventForm.source}
-                    placeholder="Source (Optional)"
-                    class="bg-dark border border-gray-700 p-3 rounded text-white"
-                />
-                <textarea
-                    bind:value={eventForm.description}
-                    placeholder="Description"
-                    rows="3"
-                    class="bg-dark border border-gray-700 p-3 rounded text-white col-span-1 md:col-span-2"
-                ></textarea>
-            </div>
-            <div class="flex justify-end space-x-4 mt-4">
-                {#if editingEventId}
-                    <button
-                        onclick={resetEventForm}
-                        class="text-gray-400 hover:text-white">Cancel</button
-                    >
-                {/if}
-                <button
-                    onclick={saveEvent}
-                    class="bg-primary text-secondary font-bold px-6 py-2 rounded hover:bg-yellow-400"
-                >
-                    {editingEventId ? "Update Event" : "Create Event"}
-                </button>
-            </div>
-        </div>
+  <div class="flex gap-4">
+    <button
+      class="px-4 py-2 rounded-lg {activeTab === 'events'
+        ? 'bg-primary text-black font-bold'
+        : 'bg-white/10'}"
+      on:click={() => (activeTab = "events")}
+    >
+      Manage Events
+    </button>
+    <button
+      class="px-4 py-2 rounded-lg {activeTab === 'questions'
+        ? 'bg-primary text-black font-bold'
+        : 'bg-white/10'}"
+      on:click={() => (activeTab = "questions")}
+    >
+      Manage Questions
+    </button>
+  </div>
 
-        <!-- Event List -->
-        <div class="space-y-4">
+  {#if activeTab === "events"}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <!-- List -->
+      <div class="bg-white/5 p-6 rounded-xl border border-white/10">
+        <h2 class="text-xl font-bold mb-4">Existing Events</h2>
+        {#if loading}
+          <div class="text-center text-gray-500">Loading...</div>
+        {:else}
+          <div
+            class="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar"
+          >
             {#each events as event}
+              <div
+                class="p-4 bg-black/20 rounded-lg flex justify-between items-start group"
+              >
+                <div>
+                  <h3
+                    class="font-bold text-white group-hover:text-primary transition-colors"
+                  >
+                    {event.title}
+                  </h3>
+                  <div class="text-sm text-gray-400">
+                    <span class="text-primary/70"
+                      >{event.eventDate || "No date"}</span
+                    >
+                    • ID: {event.id}
+                  </div>
+                </div>
                 <div
-                    class="flex justify-between items-center bg-secondary p-4 rounded border border-gray-800 hover:border-gray-700"
+                  class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity"
                 >
-                    <div>
-                        <h3 class="font-bold text-light">{event.title}</h3>
-                        <p class="text-xs text-gray-500">
-                            {event.event_date || "No Date"}
-                        </p>
-                    </div>
-                    <div class="flex space-x-2">
-                        <button
-                            onclick={() => editEvent(event)}
-                            class="text-blue-400 hover:text-blue-300"
-                            >Edit</button
-                        >
-                        <button
-                            onclick={() => confirmDelete(event.id)}
-                            class="text-red-400 hover:text-red-300"
-                            >Delete</button
-                        >
-                    </div>
+                  <button
+                    on:click={() => editEvent(event)}
+                    class="text-blue-400 hover:text-white px-2 py-1 bg-blue-500/10 rounded"
+                    >Edit</button
+                  >
+                  <button
+                    on:click={() => deleteEvent(event.id)}
+                    class="text-red-400 hover:text-white px-2 py-1 bg-red-500/10 rounded"
+                    >Delete</button
+                  >
                 </div>
+              </div>
             {/each}
-        </div>
-    {:else}
-        <!-- Question Form -->
-        <div class="bg-secondary p-6 rounded-xl border border-gray-800">
-            <h2 class="text-xl font-bold text-light mb-4">Add New Question</h2>
+            {#if events.length === 0}
+              <div class="text-center text-gray-500">
+                No events found. Create one!
+              </div>
+            {/if}
+          </div>
+        {/if}
+      </div>
 
-            <div class="space-y-4">
-                <select
-                    bind:value={questionForm.event_id}
-                    class="w-full bg-dark border border-gray-700 p-3 rounded text-white"
-                >
-                    <option value="">Select Related Event</option>
-                    {#each events as event}
-                        <option value={event.id}>{event.title}</option>
-                    {/each}
-                </select>
-
-                <input
-                    bind:value={questionForm.question_text}
-                    placeholder="Question Text"
-                    class="w-full bg-dark border border-gray-700 p-3 rounded text-white"
-                />
-
-                <textarea
-                    bind:value={questionForm.explanation}
-                    placeholder="Explanation (Shown after answering)"
-                    rows="2"
-                    class="w-full bg-dark border border-gray-700 p-3 rounded text-white"
-                ></textarea>
-
-                <select
-                    bind:value={questionForm.difficulty_level}
-                    class="w-full bg-dark border border-gray-700 p-3 rounded text-white"
-                >
-                    <option value="Easy">Easy</option>
-                    <option value="Medium">Medium</option>
-                    <option value="Hard">Hard</option>
-                </select>
-
-                <div class="space-y-2 mt-4">
-                    <h3 class="font-bold text-accent">Options</h3>
-                    {#each questionForm.options as option, i}
-                        <div class="flex items-center space-x-2">
-                            <input
-                                type="radio"
-                                name="correct"
-                                checked={option.is_correct}
-                                onchange={() => {
-                                    questionForm.options.forEach(
-                                        (o, idx) => (o.is_correct = idx === i),
-                                    );
-                                }}
-                            />
-                            <input
-                                bind:value={option.option_text}
-                                placeholder={`Option ${i + 1}`}
-                                class="flex-grow bg-dark border border-gray-700 p-2 rounded text-white"
-                            />
-                        </div>
-                    {/each}
-                </div>
-
-                <button
-                    onclick={saveQuestion}
-                    class="w-full bg-primary text-secondary font-bold px-6 py-3 rounded mt-4 hover:bg-yellow-400"
-                >
-                    Save Question
-                </button>
-            </div>
-        </div>
-    {/if}
-
-    <!-- Delete Confirmation Modal -->
-    {#if showDeleteModal}
-        <div
-            class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity"
-            aria-hidden="true"
-        >
-            <div
-                class="bg-secondary border border-gray-700 rounded-xl p-6 max-w-sm w-full shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+      <!-- Form -->
+      <div
+        class="bg-white/5 p-6 rounded-xl border border-white/10 h-fit sticky top-24"
+      >
+        <h2 class="text-xl font-bold mb-4">
+          {editingEventId ? "Edit Event" : "Create New Event"}
+        </h2>
+        <form on:submit|preventDefault={handleSubmitEvent} class="space-y-4">
+          <div>
+            <label class="block text-sm mb-1 text-gray-400">Category</label>
+            <select
+              bind:value={eventForm.categoryId}
+              class="w-full bg-black/40 border border-white/10 rounded p-2 text-white focus:border-primary outline-none"
             >
-                <h3 class="text-xl font-bold text-light mb-4">
-                    Confirm Deletion
-                </h3>
-                <p class="text-gray-400 mb-6">
-                    Are you sure you want to delete this event? This action
-                    cannot be undone and will delete all associated questions.
-                </p>
-                <div class="flex justify-end space-x-4">
-                    <button
-                        onclick={cancelDelete}
-                        class="px-4 py-2 rounded text-gray-400 hover:text-white transition-colors"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        onclick={proceedWithDelete}
-                        class="px-4 py-2 rounded bg-red-600 text-white font-bold hover:bg-red-500 shadow-lg transition-colors"
-                    >
-                        Delete
-                    </button>
-                </div>
+              <option value={undefined}>Select Category</option>
+              {#each categories as cat}
+                <option value={cat.id}>{cat.name} ({cat.categoryType})</option>
+              {/each}
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm mb-1 text-gray-400"
+              >Title (English)</label
+            >
+            <input
+              bind:value={eventForm.title}
+              class="w-full bg-black/40 border border-white/10 rounded p-2 text-white focus:border-primary outline-none"
+              required
+            />
+          </div>
+
+          <div>
+            <label class="block text-sm mb-1 text-gray-400"
+              >Title (Bengali)</label
+            >
+            <input
+              bind:value={eventForm.titleBn}
+              class="w-full bg-black/40 border border-white/10 rounded p-2 text-white focus:border-primary outline-none"
+            />
+          </div>
+
+          <div>
+            <label class="block text-sm mb-1 text-gray-400"
+              >Description (Markdown supported)</label
+            >
+            <textarea
+              bind:value={eventForm.description}
+              class="w-full bg-black/40 border border-white/10 rounded p-2 text-white h-32 focus:border-primary outline-none"
+              required
+            ></textarea>
+          </div>
+
+          <div>
+            <label class="block text-sm mb-1 text-gray-400"
+              >Description (Bengali)</label
+            >
+            <textarea
+              bind:value={eventForm.descriptionBn}
+              class="w-full bg-black/40 border border-white/10 rounded p-2 text-white h-24 focus:border-primary outline-none"
+            ></textarea>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm mb-1 text-gray-400"
+                >Date (e.g., 610 CE)</label
+              >
+              <input
+                bind:value={eventForm.eventDate}
+                class="w-full bg-black/40 border border-white/10 rounded p-2 text-white focus:border-primary outline-none"
+              />
             </div>
-        </div>
-    {/if}
+            <div>
+              <label class="block text-sm mb-1 text-gray-400">Source</label>
+              <input
+                bind:value={eventForm.source}
+                class="w-full bg-black/40 border border-white/10 rounded p-2 text-white focus:border-primary outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm mb-1 text-gray-400">Image URL</label>
+            <input
+              bind:value={eventForm.imageUrl}
+              class="w-full bg-black/40 border border-white/10 rounded p-2 text-white focus:border-primary outline-none"
+              placeholder="https://..."
+            />
+          </div>
+
+          <div class="flex gap-4 pt-4">
+            <button
+              type="submit"
+              class="bg-primary text-black font-bold py-2 px-6 rounded hover:bg-yellow-400 flex-1 transition-colors"
+            >
+              {editingEventId ? "Update Event" : "Create Event"}
+            </button>
+            {#if editingEventId}
+              <button
+                type="button"
+                on:click={resetEventForm}
+                class="bg-white/10 py-2 px-4 rounded hover:bg-white/20 transition-colors"
+              >
+                Cancel
+              </button>
+            {/if}
+          </div>
+        </form>
+      </div>
+    </div>
+  {:else}
+    <div
+      class="text-center text-gray-400 py-12 bg-white/5 rounded-xl border border-white/10"
+    >
+      <p>Question management interface would go here.</p>
+      <p class="text-sm mt-2">
+        (Implementation similar to events, linking questions to
+        events/categories)
+      </p>
+    </div>
+  {/if}
 </div>
+
+<style>
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
+</style>
