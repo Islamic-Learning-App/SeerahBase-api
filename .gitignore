@@ -3,6 +3,8 @@
 seerah.db
 seerah.db-shm
 seerah.db-wal
+seerah.db-info
+seerah.db-lock
 .env
 
 # Frontend
