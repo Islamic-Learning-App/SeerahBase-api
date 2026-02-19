@@ -11,7 +11,7 @@
   let error = "";
 
   // Get ID from route params
-  $: categoryId = parseInt($page.params.id);
+  $: categoryId = parseInt($page.params.id || "0");
 
   onMount(async () => {
     try {

@@ -16,7 +16,7 @@
     <div in:fade={{ duration: 1000, delay: 200 }} class="space-y-6">
       <h1 class="text-6xl md:text-8xl font-bold tracking-tighter">
         <span
-          class="bg-gradient-to-r from-primary via-yellow-200 to-primary bg-clip-text text-transparent bg-300% animate-gradient"
+          class="bg-gradient-to-r from-primary via-yellow-200 to-primary bg-clip-text text-transparent bg-300-percent animate-gradient"
         >
           Explore the Seerah
         </span>
@@ -82,7 +82,7 @@
 </div>
 
 <style>
-  .bg-300% {
+  .bg-300-percent {
     background-size: 300%;
   }
   .animate-gradient {
