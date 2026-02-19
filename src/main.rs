@@ -83,6 +83,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/quiz/random", get(handlers::mcq::get_random_quiz))
         .route("/questions", post(handlers::mcq::create_question))
         .route("/questions/{id}", delete(handlers::mcq::delete_question))
+        .route("/health", get(|| async { "alive" })) // return alive
+        .route("/", get(|| async { "alive" })) // return alive
         .layer(
             CorsLayer::new()
                 .allow_origin(Any)
