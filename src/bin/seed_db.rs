@@ -1,123 +1,145 @@
-use sqlx::sqlite::SqlitePoolOptions;
+use libsql::Builder;
 use std::env;
+use std::fs;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenvy::dotenv().ok();
 
-    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    let pool = SqlitePoolOptions::new().connect(&database_url).await?;
+    let url = env::var("TURSO_DATABASE_URL").expect("TURSO_DATABASE_URL must be set");
+    let token = env::var("TURSO_AUTH_TOKEN").expect("TURSO_AUTH_TOKEN must be set");
 
-    // Clear existing data
-    sqlx::query("DELETE FROM options").execute(&pool).await?;
-    sqlx::query("DELETE FROM questions").execute(&pool).await?;
-    sqlx::query("DELETE FROM events").execute(&pool).await?;
-    sqlx::query("DELETE FROM eras").execute(&pool).await?;
+    println!("Connecting to Turso DB...");
+    let db = Builder::new_remote(url, token).build().await?;
+    let conn = db.connect()?;
 
-    // 1. Seed Eras (Bengali)
-    println!("Seeding Eras...");
-    sqlx::query(
-        "INSERT INTO eras (name, description, start_date, end_date) VALUES 
-        ('মাক্কী জীবন', 'নবুয়ত প্রাপ্তি থেকে হিজরত পর্যন্ত ১৩ বছর।', '610-01-01', '622-09-20'),
-        ('মাদানী জীবন', 'হিজরতের পর থেকে ওফাত পর্যন্ত ১০ বছর।', '622-09-24', '632-06-08')
-    ",
-    )
-    .execute(&pool)
-    .await?;
-
-    let meccan_id = sqlx::query_scalar::<_, i64>("SELECT id FROM eras WHERE name = 'মাক্কী জীবন'").fetch_one(&pool).await?;
-    let medinan_id = sqlx::query_scalar::<_, i64>("SELECT id FROM eras WHERE name = 'মাদানী জীবন'").fetch_one(&pool).await?;
-
-    // 2. Seed Events (Bengali) - Meccan Period
-    println!("Seeding Events...");
-    let meccan_events = vec![
-        ("প্রথম ওহী", "হেরা গুহায় ধ্যানরত অবস্থায় রাসূলুল্লাহ (সাঃ) এর নিকট জিবরাঈল (আঃ) সূরা আলাকের প্রথম ৫ আয়াত নিয়ে আসেন। এটি ছিল নবুওয়াতের সূচনা। তিনি ভীত হয়ে খাদিজা (রাঃ) এর কাছে ফিরে আসেন এবং বলেন, 'আমাকে আবৃত কর'। খাদিজা (রাঃ) তাকে ওয়ারাকা বিন নওফেলের কাছে নিয়ে যান। \n\nবিস্তারিত পড়ুন [উইকিপিডিয়া](https://bn.wikipedia.org/wiki/%E0%A6%B9%E0%A7%87%E0%A6%B0%E0%A6%BE_%E0%A6%97%E0%A7%81%E0%A6%B9%E0%A6%BE) তে।", "610-08-10", "সহীহ বুখারী"),
-        ("প্রকাশ্যে দাওয়াত", "সাফা পাহাড়ে উঠে কুরাইশদের প্রকাশ্যে সতর্ক করা।", "613-01-01", "আর-রাহীকুল মাখতূম"),
-        ("হাবশায় হিজরত", "কুরাইশদের নির্যাতনে অতিষ্ঠ হয়ে মুসলমানদের একটি দলের হাবশায় হিজরত।", "615-05-01", "সীরাতে ইবনে হিশাম"),
-        ("শিয়াবে আবী তালিব", "বনু হাশিম ও বনু মুত্তালিব ৩ বছর বয়কট অবস্থায় ছিল।", "617-01-01", "আর-রাহীকুল মাখতূম"),
-        ("দুঃখের বছর", "চাচা আবু তালিব ও স্ত্রী খাদিজা (রাঃ) এর মৃত্যু।", "619-01-01", "সীরাতে ইবনে হিশাম"),
-        ("ইসরা ও মেরাজ", "এক রাতে মক্কা থেকে বাইতুল মুকাদ্দাস এবং সেখান থেকে সপ্তাকাশ ভ্রমণ।", "620-02-27", "সহীহ বুখারী"),
-    ];
-
-    for (title, desc, date, src) in meccan_events {
-        sqlx::query("INSERT INTO events (era_id, title, description, event_date, source) VALUES (?, ?, ?, ?, ?)")
-            .bind(meccan_id)
-            .bind(title)
-            .bind(desc)
-            .bind(date)
-            .bind(src)
-            .execute(&pool)
-            .await?;
-    }
-
-    // 2. Seed Events (Bengali) - Medinan Period
-    let medinan_events = vec![
-        ("হিজরত", "মক্কা থেকে মদিনায় ঐতিহাসিক হিজরত।", "622-09-24", "সহীহ বুখারী"),
-        ("বদরের যুদ্ধ", "সত্য ও মিথ্যার প্রথম চূড়ান্ত ফয়সালাকারী যুদ্ধ।", "624-03-17", "সূরা আল-আনফাল"),
-        ("উহুদের যুদ্ধ", "মুসলিমদের সাময়িক পরাজয় ও শিক্ষা।", "625-03-23", "সীরাতে ইবনে হিশাম"),
-        ("খন্দকের যুদ্ধ", "মদিনার চারপাশ ঘিরে পরিখা খনন করে প্রতিরক্ষা।", "627-03-31", "সূরা আল-আহযাব"),
-        ("হুদায়বিয়ার সন্ধি", "প্রকাশ্য বিজয়ের সূচনা।", "628-03-01", "সূরা আল-ফাতহ"),
-        ("মক্কা বিজয়", "রক্তপাতহীন ঐতিহাসিক বিজয়।", "630-01-11", "সহীহ বুখারী"),
-        ("বিদায় হজ", "আরাফাতের ময়দানে রাসূল (সাঃ) এর চূড়ান্ত ভাষণ।", "632-03-06", "সহীহ মুসলিম"),
-    ];
-
-    for (title, desc, date, src) in medinan_events {
-        sqlx::query("INSERT INTO events (era_id, title, description, event_date, source) VALUES (?, ?, ?, ?, ?)")
-            .bind(medinan_id)
-            .bind(title)
-            .bind(desc) // fixed
-            .bind(date)
-            .bind(src)
-            .execute(&pool)
-            .await?;
-    }
-
-    // 3. Questions
-    println!("Seeding Questions...");
-    
-    // Helper to add Q&A
-    async fn add_q(pool: &sqlx::SqlitePool, event_title: &str, text: &str, expl: &str, diff: &str, options: Vec<(&str, bool)>) -> Result<(), Box<dyn std::error::Error>> {
-        let event_id = sqlx::query_scalar::<_, i64>("SELECT id FROM events WHERE title = ?").bind(event_title).fetch_one(pool).await?;
-        
-        let q_id = sqlx::query_scalar::<_, i64>("INSERT INTO questions (event_id, question_text, explanation, difficulty_level) VALUES (?, ?, ?, ?) RETURNING id")
-            .bind(event_id)
-            .bind(text)
-            .bind(expl)
-            .bind(diff)
-            .fetch_one(pool)
-            .await?;
-
-        for (opt_text, is_correct) in options {
-            sqlx::query("INSERT INTO options (question_id, option_text, is_correct) VALUES (?, ?, ?)")
-                .bind(q_id)
-                .bind(opt_text)
-                .bind(is_correct)
-                .execute(pool)
-                .await?;
+    // 1. Initialize Schema
+    println!("Applying schema...");
+    let schema = fs::read_to_string("schema.sql")?;
+    // split by ';' and execute each statement
+    for statement in schema.split(';') {
+        let stmt = statement.trim();
+        if !stmt.is_empty() {
+            conn.execute(stmt, ()).await?;
         }
-        Ok(())
     }
 
-    add_q(&pool, "প্রথম ওহী", "প্রথম ওহী কোথায় নাজিল হয়েছিল?", "এটি জাবাল আল-নূরের হেরা গুহায় নাজিল হয়েছিল।", "Easy", vec![
-        ("হেরা গুহায়", true), ("সাওর গুহায়", false), ("কাবা ঘরে", false), ("উহুদ পাহাড়ে", false)
-    ]).await?;
+    // 2. Clear existing data
+    println!("Clearing old data...");
+    conn.execute("DELETE FROM options", ()).await?;
+    conn.execute("DELETE FROM questions", ()).await?;
+    conn.execute("DELETE FROM events", ()).await?;
+    conn.execute("DELETE FROM categories", ()).await?;
 
-    add_q(&pool, "ইসরা ও মেরাজ", "মেরাজ এর রাতে কত ওয়াক্ত সালাত ফরজ করা হয়?", "প্রাথমিক ভাবে ৫০ ওয়াক্ত, পরে কমিয়ে ৫ ওয়াক্ত করা হয়।", "Medium", vec![
-        ("৫০ ওয়াক্ত", false), ("৫ ওয়াক্ত", true), ("১০ ওয়াক্ত", false), ("৩ ওয়াক্ত", false)
-    ]).await?;
+    // Reset sequence? SQLite doesn't always need this unless we want ID 1 again.
+    // conn.execute("DELETE FROM sqlite_sequence WHERE name IN ('categories', 'events', 'questions', 'options')", ()).await.ok();
 
-    add_q(&pool, "হিজরত", "হিজরতের সময় রাসূল (সাঃ) এর সঙ্গী কে ছিলেন?", "হিজরতের কঠিন সফরে হযরত আবু বকর (রাঃ) ছায়ার মতো সঙ্গী ছিলেন।", "Easy", vec![
-        ("হযরত আলী (রাঃ)", false), ("হযরত উমর (রাঃ)", false), ("হযরত আবু বকর (রাঃ)", true), ("হযরত উসমান (রাঃ)", false)
-    ]).await?;
+    // 3. Seed Categories
+    println!("Seeding 24 Categories...");
 
-    add_q(&pool, "বদরের যুদ্ধ", "বদরের যুদ্ধে মুসলিম সৈন্য সংখ্যা কত ছিল?", "৩১৩ জন সাহাবী ছিলেন।", "Hard", vec![
-        ("১০০০", false), ("৩১৩", true), ("৩০০", false), ("৫০", false)
-    ]).await?;
+    let categories = vec![
+        // Eras
+        ("Makkah Period", "মক্কী জীবন", "era", "🕋", 1),
+        ("Madinah Period", "মাদানী জীবন", "era", "🕌", 2),
+        
+        // Surah Groups
+        ("Makki Surahs", "মক্কী সূরা", "surah_group", "📖", 3),
+        ("Madani Surahs", "মাদানী সূরা", "surah_group", "📗", 4),
+
+        // Prophets (10)
+        ("Adam (AS)", "আদম (আঃ)", "prophet", "🌿", 5),
+        ("Nuh (AS)", "নূহ (আঃ)", "prophet", "🚢", 6),
+        ("Ibrahim (AS)", "ইবরাহীম (আঃ)", "prophet", "🔥", 7),
+        ("Ismail (AS)", "ইসমাঈল (আঃ)", "prophet", "🏜️", 8),
+        ("Yusuf (AS)", "ইউসুফ (আঃ)", "prophet", "⭐", 9),
+        ("Musa (AS)", "মূসা (আঃ)", "prophet", "🌊", 10),
+        ("Dawud (AS)", "দাউদ (আঃ)", "prophet", "🎵", 11),
+        ("Sulaiman (AS)", "সুলাইমান (আঃ)", "prophet", "👑", 12),
+        ("Isa (AS)", "ঈসা (আঃ)", "prophet", "☁️", 13),
+        ("Muhammad (SAW)", "মুহাম্মদ (সাঃ)", "prophet", "✨", 14),
+
+        // Topics (10)
+        ("Major Battles", "প্রধান যুদ্ধসমূহ", "topic", "⚔️", 15),
+        ("Lives of Sahabas", "সাহাবীদের জীবনী", "topic", "🌟", 16),
+        ("Mothers of Believers", "উম্মাহাতুল মুমিনীন", "topic", "💎", 17),
+        ("Hijrah", "হিজরতের ঘটনা", "topic", "🐪", 18),
+        ("Pillars of Islam", "ইসলামের স্তম্ভসমূহ", "topic", "🏛️", 19),
+        ("Branches of Iman", "ঈমানের শাখাসমূহ", "topic", "🌳", 20),
+        ("Rashidun Caliphs", "খুলাফায়ে রাশেদীন", "topic", "🏆", 21),
+        ("Stories from Quran", "কুরআনের কাহিনী", "topic", "📚", 22),
+        ("Dua & Dhikr", "দোয়া ও যিকর", "topic", "🤲", 23),
+        ("Hereafter", "আখিরাত ও হাশর", "topic", "⏳", 24),
+    ];
+
+    for (name, name_bn, cat_type, icon, order) in categories {
+        conn.execute(
+            "INSERT INTO categories (name, name_bn, category_type, icon, sort_order) VALUES (?1, ?2, ?3, ?4, ?5)",
+            libsql::params![name, name_bn, cat_type, icon, order],
+        )
+        .await?;
+    }
+
+    // 4. Seed Sample Events (Meccan Period)
+    println!("Seeding Events...");
     
-    add_q(&pool, "মক্কা বিজয়", "মক্কা বিজয়ের দিন রাসূল (সাঃ) কুরাইশদের সাথে কেমন আচরণ করেছিলেন?", "'আজ তোমাদের বিরুদ্ধে কোন অভিযোগ নেই, তোমরা মুক্ত।'", "Medium", vec![
-        ("সবাইকে ক্ষমা করে দেন", true), ("নেতাদের হত্যা করেন", false), ("বন্দী করেন", false), ("মক্কা থেকে বের করে দেন", false)
-    ]).await?;
+    // Get Category IDs (simple fetch since we just inserted them in order, but let's query to be safe or just assume IDs 1 & 2 for eras)
+    // Actually, AUTOINCREMENT IDs typically start at 1.
+    let makki_id = 1; 
+    let madani_id = 2;
 
-    println!("Database seeded successfully with Real Bengali History data!");
+    let events = vec![
+        (makki_id, "First Revelation", "প্রথম ওহী", "Hira Cave...", "হেরা গুহায়... (বিস্তারিত)", "610 CE"),
+        (makki_id, "Public Preaching", "প্রকাশ্যে দাওয়াত", "Safa Hill...", "সাফা পাহাড়ে...", "613 CE"),
+        (madani_id, "Hijrah", "হিজরত", "Migration to Madinah...", "মদিনায় হিজরত...", "622 CE"),
+        (madani_id, "Battle of Badr", "বদরের যুদ্ধ", "First battle...", "প্রথম যুদ্ধ...", "624 CE"),
+    ];
+
+    for (cat_id, title, title_bn, desc, desc_bn, date) in events {
+        conn.execute(
+            "INSERT INTO events (category_id, title, title_bn, description, description_bn, event_date) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            libsql::params![cat_id, title, title_bn, desc, desc_bn, date],
+        )
+        .await?;
+    }
+
+    // 5. Questions (Sample)
+    println!("Seeding Questions...");
+    // Need an event ID. Let's assume ID 1 (First Revelation).
+    let event_id = 1;
+    let cat_id = 1; // Makki
+
+    // Insert a question
+    conn.execute(
+        "INSERT INTO questions (event_id, category_id, question_text, question_text_bn, explanation, explanation_bn, difficulty_level) 
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        libsql::params![
+            event_id, 
+            cat_id, 
+            "Where was the first revelation?", 
+            "প্রথম ওহী কোথায় নাজিল হয়েছিল?",
+            "It was in Hira Cave.",
+            "এটি হেরা গুহায় নাজিল হয়েছিল।",
+            "Easy"
+        ],
+    ).await?;
+
+    // Get that question ID (should be 1)
+    let q_id = 1;
+
+    let options = vec![
+        ("Cave Hira", "হেরা গুহায়", true),
+        ("Cave Thawr", "সাওর গুহায়", false),
+        ("Kaaba", "কাবা ঘরে", false),
+        ("Uhud", "উহুদ পাহাড়ে", false),
+    ];
+
+    for (txt, txt_bn, is_correct) in options {
+        conn.execute(
+            "INSERT INTO options (question_id, option_text, option_text_bn, is_correct) VALUES (?1, ?2, ?3, ?4)",
+            libsql::params![q_id, txt, txt_bn, is_correct],
+        ).await?;
+    }
+
+    println!("Database seeded successfully!");
     Ok(())
 }
