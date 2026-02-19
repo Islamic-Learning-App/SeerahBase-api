@@ -1,69 +1,142 @@
 use crate::{
     auth::ApiKey,
     db::DbPool,
-    models::{CreateEvent, UpdateEvent, Era, Event},
+    errors::AppError,
+    models::{
+        Category, CreateEvent, Event, PaginatedResponse, PaginationParams, UpdateEvent,
+    },
 };
 use axum::{
-    Json,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
+    Json,
 };
 
 #[utoipa::path(
     get,
-    path = "/eras",
+    path = "/categories",
+    params(
+        ("type" = Option<String>, Query, description = "Filter by category type (era, prophet, etc)")
+    ),
     responses(
-        (status = 200, description = "List all eras", body = Vec<Era>)
+        (status = 200, description = "List categories", body = Vec<Category>)
     )
 )]
-pub async fn get_eras(State(pool): State<DbPool>) -> Json<Vec<Era>> {
-    let eras = sqlx::query_as::<_, Era>("SELECT * FROM eras ORDER BY start_date")
-        .fetch_all(&pool)
-        .await
-        .unwrap_or_else(|_| vec![]);
+pub async fn get_categories(
+    State(db): State<DbPool>,
+    Query(params): Query<std::collections::HashMap<String, String>>,
+) -> Result<Json<Vec<Category>>, AppError> {
+    let conn = db.connect()?;
+    
+    let mut query = "SELECT * FROM categories".to_string();
+    let mut args = Vec::new();
+    
+    if let Some(cat_type) = params.get("type") {
+        query.push_str(" WHERE category_type = ?");
+        args.push(cat_type.as_str());
+    }
+    
+    query.push_str(" ORDER BY sort_order ASC");
 
-    Json(eras)
+    // libsql execute/query args handling is a bit specific. 
+    // using params! macro or a slice of values.
+    // For dynamic args, we might need a different approach or just execute raw if safe/simple, 
+    // but better to use parameterized.
+    // libsql::params::Params::from(args) ?
+
+    let mut rows = if args.is_empty() {
+        conn.query(&query, ()).await?
+    } else {
+        conn.query(&query, libsql::params![args[0].to_string()]).await?
+    };
+
+    let mut categories = Vec::new();
+    while let Some(row) = rows.next().await? {
+        categories.push(Category::from_row(&row)?);
+    }
+
+    Ok(Json(categories))
 }
 
 #[utoipa::path(
     get,
-    path = "/eras/{id}/events",
+    path = "/categories/{id}/events",
     params(
-        ("id" = i64, Path, description = "Era ID")
+        ("id" = i64, Path, description = "Category ID")
     ),
     responses(
-        (status = 200, description = "List events by era", body = Vec<Event>)
+        (status = 200, description = "List events by category", body = Vec<Event>)
     )
 )]
-pub async fn get_events_by_era(
-    State(pool): State<DbPool>,
-    Path(era_id): Path<i64>,
-) -> Json<Vec<Event>> {
-    let events =
-        sqlx::query_as::<_, Event>("SELECT * FROM events WHERE era_id = ? ORDER BY event_date")
-            .bind(era_id)
-            .fetch_all(&pool)
-            .await
-            .unwrap_or_else(|_| vec![]);
+pub async fn get_events_by_category(
+    State(db): State<DbPool>,
+    Path(id): Path<i64>,
+) -> Result<Json<Vec<Event>>, AppError> {
+    let conn = db.connect()?;
+    
+    let mut rows = conn
+        .query(
+            "SELECT * FROM events WHERE category_id = ? ORDER BY event_date ASC",
+            libsql::params![id],
+        )
+        .await?;
 
-    Json(events)
+    let mut events = Vec::new();
+    while let Some(row) = rows.next().await? {
+        events.push(Event::from_row(&row)?);
+    }
+
+    Ok(Json(events))
 }
 
 #[utoipa::path(
     get,
     path = "/events",
+    params(
+        PaginationParams
+    ),
     responses(
-        (status = 200, description = "List all events", body = Vec<Event>)
+        (status = 200, description = "List all events paginated", body = PaginatedResponse<Event>)
     )
 )]
-pub async fn get_all_events(State(pool): State<DbPool>) -> Json<Vec<Event>> {
-    let events = sqlx::query_as::<_, Event>("SELECT * FROM events ORDER BY event_date")
-        .fetch_all(&pool)
-        .await
-        .unwrap_or_else(|_| vec![]);
+pub async fn get_all_events(
+    State(db): State<DbPool>,
+    Query(pagination): Query<PaginationParams>,
+) -> Result<Json<PaginatedResponse<Event>>, AppError> {
+    let conn = db.connect()?;
+    
+    let page = pagination.page.unwrap_or(1).max(1);
+    let limit = pagination.limit.unwrap_or(20).clamp(1, 100);
+    let offset = (page - 1) * limit;
 
-    Json(events)
+    // Get total count
+    let mut count_rows = conn.query("SELECT COUNT(*) FROM events", ()).await?;
+    let total: i64 = if let Some(row) = count_rows.next().await? {
+        row.get(0)?
+    } else {
+        0
+    };
+
+    // Get data
+    let mut rows = conn
+        .query(
+            "SELECT * FROM events ORDER BY event_date ASC LIMIT ? OFFSET ?",
+            libsql::params![limit as i64, offset as i64],
+        )
+        .await?;
+
+    let mut events = Vec::new();
+    while let Some(row) = rows.next().await? {
+        events.push(Event::from_row(&row)?);
+    }
+
+    Ok(Json(PaginatedResponse {
+        data: events,
+        page,
+        limit,
+        total: total as u64,
+    }))
 }
 
 #[utoipa::path(
@@ -80,29 +153,39 @@ pub async fn get_all_events(State(pool): State<DbPool>) -> Json<Vec<Event>> {
     )
 )]
 pub async fn create_event(
-    State(pool): State<DbPool>,
+    State(db): State<DbPool>,
     _api_key: ApiKey,
     Json(payload): Json<CreateEvent>,
-) -> impl IntoResponse {
-    let result = sqlx::query_as::<_, Event>(
-        "INSERT INTO events (era_id, title, description, event_date, source) VALUES (?, ?, ?, ?, ?) RETURNING *"
-    )
-    .bind(payload.era_id)
-    .bind(payload.title)
-    .bind(payload.description)
-    .bind(payload.event_date)
-    .bind(payload.source)
-    .fetch_one(&pool)
-    .await;
+) -> Result<impl IntoResponse, AppError> {
+    let conn = db.connect()?;
 
-    match result {
-        Ok(event) => (StatusCode::CREATED, Json(event)).into_response(),
-        Err(e) => {
-            tracing::error!("Failed to create event: {:?}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Failed to create event").into_response()
-        }
+    let mut rows = conn
+        .query(
+            "INSERT INTO events (category_id, title, title_bn, description, description_bn, event_date, source, image_url) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8) RETURNING *",
+            libsql::params![
+                payload.category_id,
+                payload.title,
+                payload.title_bn,
+                payload.description,
+                payload.description_bn,
+                payload.event_date,
+                payload.source,
+                payload.image_url
+            ],
+        )
+        .await?;
+
+    if let Some(row) = rows.next().await? {
+        let event = Event::from_row(&row)?;
+        Ok((StatusCode::CREATED, Json(event)))
+    } else {
+        Err(AppError::InternalServerError("Failed to return created event".to_string()))
     }
 }
+
+// TODO: Update and Delete similarly... 
+// For brevity in this turn, I implemented Create. Update/Delete follow same pattern.
+// I'll add them to be thorough.
 
 #[utoipa::path(
     put,
@@ -115,50 +198,56 @@ pub async fn create_event(
     responses(
         (status = 200, description = "Event updated successfully", body = Event),
         (status = 401, description = "Unauthorized"),
-        (status = 404, description = "Event not found"),
-        (status = 500, description = "Internal Server Error")
+        (status = 404, description = "Event not found")
     )
 )]
 pub async fn update_event(
-    State(pool): State<DbPool>,
+    State(db): State<DbPool>,
     Path(id): Path<i64>,
     _api_key: ApiKey,
     Json(payload): Json<UpdateEvent>,
-) -> impl IntoResponse {
-    /* 
-       Previously planned dynamic query builder logic removed in favor of COALESCE.
-       Unused variables cleaned up.
-    */
-    
-    let result = sqlx::query_as::<_, Event>(
-        r#"
-        UPDATE events 
-        SET 
-            era_id = COALESCE(?, era_id),
-            title = COALESCE(?, title),
-            description = COALESCE(?, description),
-            event_date = COALESCE(?, event_date),
-            source = COALESCE(?, source)
-        WHERE id = ?
-        RETURNING *
-        "#
-    )
-    .bind(payload.era_id)
-    .bind(payload.title)
-    .bind(payload.description)
-    .bind(payload.event_date)
-    .bind(payload.source)
-    .bind(id)
-    .fetch_optional(&pool)
-    .await;
+) -> Result<impl IntoResponse, AppError> {
+    let conn = db.connect()?;
 
-    match result {
-        Ok(Some(event)) => (StatusCode::OK, Json(event)).into_response(),
-        Ok(None) => (StatusCode::NOT_FOUND, "Event not found").into_response(),
-        Err(e) => {
-            tracing::error!("Failed to update event: {:?}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Failed to update event").into_response()
-        }
+    // Using COALESCE logic in SQL or building the query.
+    // Libsql might not support named params easily or COALESCE with bindings for partial updates nicely without boilerplate.
+    // Let's use simple COALESCE query.
+
+    let mut rows = conn
+        .query(
+            r#"
+            UPDATE events 
+            SET 
+                category_id = COALESCE(?1, category_id),
+                title = COALESCE(?2, title),
+                title_bn = COALESCE(?3, title_bn),
+                description = COALESCE(?4, description),
+                description_bn = COALESCE(?5, description_bn),
+                event_date = COALESCE(?6, event_date),
+                source = COALESCE(?7, source),
+                image_url = COALESCE(?8, image_url)
+            WHERE id = ?9
+            RETURNING *
+            "#,
+            libsql::params![
+                payload.category_id,
+                payload.title,
+                payload.title_bn,
+                payload.description,
+                payload.description_bn,
+                payload.event_date,
+                payload.source,
+                payload.image_url,
+                id
+            ],
+        )
+        .await?;
+
+    if let Some(row) = rows.next().await? {
+        let event = Event::from_row(&row)?;
+        Ok(Json(event))
+    } else {
+        Err(AppError::NotFound("Event not found".to_string()))
     }
 }
 
@@ -172,65 +261,26 @@ pub async fn update_event(
     responses(
         (status = 204, description = "Event deleted successfully"),
         (status = 401, description = "Unauthorized"),
-        (status = 404, description = "Event not found"), // SQLx execution result usually returns rows affected
-        (status = 500, description = "Internal Server Error")
+        (status = 404, description = "Event not found")
     )
 )]
 pub async fn delete_event(
-    State(pool): State<DbPool>,
+    State(db): State<DbPool>,
     Path(id): Path<i64>,
     _api_key: ApiKey,
-) -> impl IntoResponse {
-    let mut tx = match pool.begin().await {
-        Ok(tx) => tx,
-        Err(e) => {
-            tracing::error!("Failed to start transaction: {:?}", e);
-            return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to start transaction").into_response();
-        }
-    };
+) -> Result<impl IntoResponse, AppError> {
+    let conn = db.connect()?;
 
-    // 1. Delete Options for Questions related to this event
-    if let Err(e) = sqlx::query("DELETE FROM options WHERE question_id IN (SELECT id FROM questions WHERE event_id = ?)")
-        .bind(id)
-        .execute(&mut *tx)
-        .await
-    {
-        tracing::error!("Failed to delete options: {:?}", e);
-        return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to delete dependent options").into_response();
-    }
+    // Manual cascading?
+    conn.execute("DELETE FROM options WHERE question_id IN (SELECT id FROM questions WHERE event_id = ?1)", libsql::params![id]).await?;
+    conn.execute("DELETE FROM questions WHERE event_id = ?1", libsql::params![id]).await?;
 
-    // 2. Delete Questions related to this event
-    if let Err(e) = sqlx::query("DELETE FROM questions WHERE event_id = ?")
-        .bind(id)
-        .execute(&mut *tx)
-        .await
-    {
-        tracing::error!("Failed to delete questions: {:?}", e);
-        return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to delete dependent questions").into_response();
-    }
+    let result = conn.execute("DELETE FROM events WHERE id = ?1", libsql::params![id]).await?;
 
-    // 3. Delete the Event itself
-    let result = sqlx::query("DELETE FROM events WHERE id = ?")
-        .bind(id)
-        .execute(&mut *tx)
-        .await;
-
-    match result {
-        Ok(res) => {
-            if res.rows_affected() > 0 {
-                if let Err(e) = tx.commit().await {
-                     tracing::error!("Failed to commit transaction: {:?}", e);
-                     return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to commit transaction").into_response();
-                }
-                (StatusCode::NO_CONTENT, ()).into_response()
-            } else {
-                (StatusCode::NOT_FOUND, "Event not found").into_response()
-            }
-        }
-        Err(e) => {
-            tracing::error!("Failed to delete event: {:?}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Failed to delete event").into_response()
-        }
+    if result > 0 {
+        Ok((StatusCode::NO_CONTENT, ()))
+    } else {
+        Err(AppError::NotFound("Event not found".to_string()))
     }
 }
 
@@ -246,17 +296,19 @@ pub async fn delete_event(
     )
 )]
 pub async fn get_event_by_id(
-    State(pool): State<DbPool>,
+    State(db): State<DbPool>,
     Path(id): Path<i64>,
-) -> impl IntoResponse {
-    let event = sqlx::query_as::<_, Event>("SELECT * FROM events WHERE id = ?")
-        .bind(id)
-        .fetch_optional(&pool)
-        .await
-        .unwrap_or(None);
+) -> Result<impl IntoResponse, AppError> {
+    let conn = db.connect()?;
 
-    match event {
-        Some(e) => (StatusCode::OK, Json(e)).into_response(),
-        None => (StatusCode::NOT_FOUND, "Event not found").into_response(),
+    let mut rows = conn
+        .query("SELECT * FROM events WHERE id = ?", libsql::params![id])
+        .await?;
+
+    if let Some(row) = rows.next().await? {
+        let event = Event::from_row(&row)?;
+        Ok(Json(event))
+    } else {
+        Err(AppError::NotFound("Event not found".to_string()))
     }
 }
