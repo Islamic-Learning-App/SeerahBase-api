@@ -14,7 +14,7 @@ COPY src ./src
 COPY schema.sql .
 
 # Build release binaries
-RUN cargo build --release --bin SeerahBase-api --bin init_db --bin seed_db
+RUN cargo build --release --bin SeerahBase-api --bin seed_db
 
 # Runtime Stage
 FROM debian:bookworm-slim
@@ -26,15 +26,16 @@ RUN apt-get update && apt-get install -y libssl3 ca-certificates && rm -rf /var/
 
 # Copy binaries from builder
 COPY --from=builder /app/target/release/SeerahBase-api .
-COPY --from=builder /app/target/release/init_db .
 COPY --from=builder /app/target/release/seed_db .
 COPY --from=builder /app/schema.sql .
 
-# Create data directory
+# Create data directory (optional for remote db but good practice)
 RUN mkdir -p /app/data
 
 # Environment variables
-ENV DATABASE_URL=sqlite:/app/data/seerah.db
+ENV TURSO_DATABASE_URL=
+ENV TURSO_AUTH_TOKEN=
+ENV RUST_LOG=info
 ENV RUST_LOG=info
 
 # Expose port
