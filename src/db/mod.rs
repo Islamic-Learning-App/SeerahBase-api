@@ -17,15 +17,33 @@ async fn try_embedded_replica(
     url: &str,
     token: &str,
 ) -> Result<Database, Box<dyn std::error::Error>> {
-    let db = Builder::new_remote_replica(db_file, url.to_string(), token.to_string())
-        // No sync_interval — we sync manually after writes only
+    // Try V2 protocol first (faster), fall back to stable V1
+    let db = match Builder::new_remote_replica(db_file, url.to_string(), token.to_string())
         .sync_protocol(libsql::SyncProtocol::V2)
         .build()
-        .await?;
+        .await
+    {
+        Ok(db) => match db.sync().await {
+            Ok(_) => {
+                println!("Embedded replica ready at: {} (V2, manual sync)", db_file);
+                return Ok(db);
+            }
+            Err(e) => {
+                eprintln!("V2 sync failed ({}), trying stable protocol...", e);
+            }
+        },
+        Err(e) => {
+            eprintln!("V2 build failed ({}), trying stable protocol...", e);
+        }
+    };
 
-    // Initial sync to pull latest data
+    // Fallback: stable protocol (V1/default)
+    let _ = std::fs::remove_file(db_file); // clean up partial V2 files
+    let db = Builder::new_remote_replica(db_file, url.to_string(), token.to_string())
+        .build()
+        .await?;
     db.sync().await?;
-    println!("Embedded replica ready at: {} (manual sync mode)", db_file);
+    println!("Embedded replica ready at: {} (stable, manual sync)", db_file);
     Ok(db)
 }
 
