@@ -10,12 +10,25 @@ pub async fn init_db() -> Result<DbPool, Box<dyn std::error::Error>> {
     let token = env::var("TURSO_AUTH_TOKEN").expect("TURSO_AUTH_TOKEN must be set");
 
     let db = if let Ok(db_file) = env::var("DB_FILE") {
-        println!("Initializing embedded replica with file: {}", db_file);
-        Builder::new_remote_replica(db_file, url, token)
-            .sync_interval(std::time::Duration::from_secs(60))
+        // Try embedded replica (needs writable filesystem)
+        println!("Trying embedded replica with file: {}", db_file);
+        match Builder::new_remote_replica(db_file, url.clone(), token.clone())
+            .sync_interval(std::time::Duration::from_secs(300))
             .sync_protocol(libsql::SyncProtocol::V2)
             .build()
-            .await?
+            .await
+        {
+            Ok(db) => {
+                println!("Embedded replica initialized successfully");
+                db
+            }
+            Err(e) => {
+                eprintln!("Embedded replica failed ({}), falling back to remote-only", e);
+                Builder::new_remote(url, token)
+                    .build()
+                    .await?
+            }
+        }
     } else {
         println!("Initializing remote-only connection");
         Builder::new_remote(url, token)
@@ -25,3 +38,4 @@ pub async fn init_db() -> Result<DbPool, Box<dyn std::error::Error>> {
 
     Ok(Arc::new(db))
 }
+
