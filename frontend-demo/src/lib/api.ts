@@ -87,6 +87,26 @@ export const api = {
     return fetchAPI(`/categories${query}`);
   },
 
+  createCategory: async (data: Partial<Category>): Promise<Category> => {
+    return fetchAPI("/categories", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  updateCategory: async (id: number, data: Partial<Category>): Promise<Category> => {
+    return fetchAPI(`/categories/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteCategory: async (id: number): Promise<void> => {
+    return fetchAPI(`/categories/${id}`, {
+      method: "DELETE",
+    });
+  },
+
   getEventsByCategory: async (categoryId: number): Promise<Event[]> => {
     return fetchAPI(`/categories/${categoryId}/events`);
   },

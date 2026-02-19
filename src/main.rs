@@ -24,6 +24,9 @@ use crate::models::*;
 #[openapi(
     paths(
         handlers::history::get_categories,
+        handlers::history::create_category,
+        handlers::history::update_category,
+        handlers::history::delete_category,
         handlers::history::get_events_by_category,
         handlers::history::get_all_events,
         handlers::history::create_event,
@@ -37,7 +40,8 @@ use crate::models::*;
     ),
     components(
         schemas(
-            Category, Event, CreateEvent, UpdateEvent, 
+            Category, CreateCategory, UpdateCategory,
+            Event, CreateEvent, UpdateEvent, 
             Question, QuestionWithOptions, AnswerOption, CreateQuestion, CreateOption,
             PaginatedResponse<Event>, PaginationParams
         )
@@ -70,7 +74,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let app = Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
-        .route("/categories", get(handlers::history::get_categories))
+        .route("/categories", get(handlers::history::get_categories).post(handlers::history::create_category))
+        .route("/categories/{id}", axum::routing::put(handlers::history::update_category).delete(handlers::history::delete_category))
         .route("/categories/{id}/events", get(handlers::history::get_events_by_category))
         .route("/events", get(handlers::history::get_all_events).post(handlers::history::create_event))
         .route("/events/{id}", get(handlers::history::get_event_by_id).put(handlers::history::update_event).delete(handlers::history::delete_event))

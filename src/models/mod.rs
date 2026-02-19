@@ -169,6 +169,32 @@ pub struct CreateOption {
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct CreateCategory {
+    pub name: String,
+    pub name_bn: String,
+    pub category_type: String,
+    pub description: Option<String>,
+    pub description_bn: Option<String>,
+    pub icon: Option<String>,
+    pub sort_order: i64,
+    pub parent_id: Option<i64>,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateCategory {
+    pub name: Option<String>,
+    pub name_bn: Option<String>,
+    pub category_type: Option<String>,
+    pub description: Option<String>,
+    pub description_bn: Option<String>,
+    pub icon: Option<String>,
+    pub sort_order: Option<i64>,
+    pub parent_id: Option<i64>,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateQuestion {
     pub event_id: Option<i64>,
     pub category_id: Option<i64>,

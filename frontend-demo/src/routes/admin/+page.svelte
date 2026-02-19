@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { api, type Event, type Category } from "$lib/api";
 
-  let activeTab: "events" | "questions" = "events";
+  let activeTab: "events" | "questions" | "categories" = "events";
 
   // Data
   let events: Event[] = [];
@@ -12,6 +12,14 @@
   // Forms
   let eventForm: Partial<Event> = { title: "", description: "" };
   let editingEventId: number | null = null;
+
+  let categoryForm: Partial<Category> = {
+    name: "",
+    nameBn: "",
+    categoryType: "historical_era",
+    sortOrder: 0,
+  };
+  let editingCategoryId: number | null = null;
 
   onMount(async () => {
     await loadData();
@@ -27,13 +35,14 @@
       events = e.data;
       categories = c;
     } catch (err) {
-      console.error(err);
-      alert("Failed to load data");
+      console.error("Error loading data:", err);
+      alert("Failed to load data. See console for details.");
     } finally {
       loading = false;
     }
   }
 
+  // --- Events ---
   async function handleSubmitEvent() {
     try {
       // Basic validation
@@ -77,6 +86,49 @@
     editingEventId = null;
     eventForm = { title: "", description: "" };
   }
+
+  // --- Categories ---
+  async function handleSubmitCategory() {
+    try {
+      if (editingCategoryId) {
+        await api.updateCategory(editingCategoryId, categoryForm);
+      } else {
+        await api.createCategory(categoryForm);
+      }
+      await loadData();
+      resetCategoryForm();
+    } catch (err) {
+      console.error(err);
+      alert("Error saving category");
+    }
+  }
+
+  async function deleteCategory(id: number) {
+    if (!confirm("Are you sure? This will delete the category.")) return;
+    try {
+      await api.deleteCategory(id);
+      await loadData();
+    } catch (err) {
+      console.error(err);
+      alert("Error deleting category. Ensure it has no events.");
+    }
+  }
+
+  function editCategory(cat: Category) {
+    editingCategoryId = cat.id;
+    categoryForm = { ...cat };
+    // Open Categories tab if not already? (Usually we are already there)
+  }
+
+  function resetCategoryForm() {
+    editingCategoryId = null;
+    categoryForm = {
+      name: "",
+      nameBn: "",
+      categoryType: "historical_era",
+      sortOrder: 0,
+    };
+  }
 </script>
 
 <div class="space-y-8">
@@ -104,6 +156,14 @@
       on:click={() => (activeTab = "events")}
     >
       Manage Events
+    </button>
+    <button
+      class="px-4 py-2 rounded-lg {activeTab === 'categories'
+        ? 'bg-primary text-black font-bold'
+        : 'bg-white/10'}"
+      on:click={() => (activeTab = "categories")}
+    >
+      Manage Categories
     </button>
     <button
       class="px-4 py-2 rounded-lg {activeTab === 'questions'
