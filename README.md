@@ -109,15 +109,15 @@ docker run -p 3000:3000 --env-file .env seerahbase-api
 
 ```mermaid
 graph TD
-    User[User / Frontend] -->|HTTP/JSON| API[Axum API Server]
+    User["User / Frontend"] -->|"HTTP/JSON"| API["Axum API Server"]
     API -->|Validation| Handlers
 
     subgraph "Data Layer"
-        Handlers -->|Read (Fast)| LocalDB[(Local Replica)]
-        Handlers -->|Write (Sync)| LocalDB
-        LocalDB <-->|Background Sync| RemoteDB[(Turso Cloud)]
+        Handlers -->|"Read (Fast)"| LocalDB[("Local Replica")]
+        Handlers -->|"Write (Sync)"| LocalDB
+        LocalDB <-->|"Background Sync"| RemoteDB[("Turso Cloud")]
     end
 
     Handlers -->|Response| API
-    API -->|Compressed JSON| User
+    API -->|"Compressed JSON"| User
 ```
