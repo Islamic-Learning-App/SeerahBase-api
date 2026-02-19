@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0a1628"/>
+      <stop offset="100%" stop-color="#0f2744"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f5c842"/>
+      <stop offset="100%" stop-color="#d4a012"/>
+    </linearGradient>
+    <linearGradient id="page" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fef9e7"/>
+      <stop offset="100%" stop-color="#f0e6c8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+
+  <!-- Decorative Islamic geometric border ring -->
+  <circle cx="256" cy="240" r="160" stroke="url(#gold)" stroke-width="2" fill="none" opacity="0.3"/>
+  <circle cx="256" cy="240" r="170" stroke="url(#gold)" stroke-width="1" fill="none" opacity="0.15"/>
+
+  <!-- Crescent Moon -->
+  <path d="M256 80 C220 80, 190 110, 190 150 C190 190, 220 220, 256 220 C232 210, 215 185, 215 155 C215 125, 232 100, 256 80Z" fill="url(#gold)" opacity="0.9"/>
+
+  <!-- Star next to crescent -->
+  <polygon points="280,115 284,126 296,126 287,133 290,144 280,137 270,144 273,133 264,126 276,126" fill="url(#gold)" opacity="0.85"/>
+
+  <!-- Open Book - Left Page -->
+  <path d="M148 260 L148 390 Q200 370, 252 385 L252 255 Q200 240, 148 260Z" fill="url(#page)" opacity="0.95"/>
+
+  <!-- Open Book - Right Page -->
+  <path d="M364 260 L364 390 Q312 370, 260 385 L260 255 Q312 240, 364 260Z" fill="url(#page)" opacity="0.9"/>
+
+  <!-- Book Spine -->
+  <line x1="256" y1="250" x2="256" y2="390" stroke="#d4a012" stroke-width="3" opacity="0.6"/>
+
+  <!-- Text lines on left page -->
+  <line x1="168" y1="280" x2="232" y2="275" stroke="#c4a060" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+  <line x1="168" y1="298" x2="228" y2="293" stroke="#c4a060" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+  <line x1="168" y1="316" x2="224" y2="312" stroke="#c4a060" stroke-width="2" stroke-linecap="round" opacity="0.35"/>
+  <line x1="168" y1="334" x2="220" y2="331" stroke="#c4a060" stroke-width="2" stroke-linecap="round" opacity="0.3"/>
+  <line x1="168" y1="352" x2="235" y2="350" stroke="#c4a060" stroke-width="2" stroke-linecap="round" opacity="0.25"/>
+
+  <!-- Text lines on right page -->
+  <line x1="280" y1="275" x2="344" y2="280" stroke="#c4a060" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+  <line x1="284" y1="293" x2="344" y2="298" stroke="#c4a060" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+  <line x1="288" y1="312" x2="344" y2="316" stroke="#c4a060" stroke-width="2" stroke-linecap="round" opacity="0.35"/>
+  <line x1="292" y1="331" x2="344" y2="334" stroke="#c4a060" stroke-width="2" stroke-linecap="round" opacity="0.3"/>
+  <line x1="278" y1="350" x2="344" y2="352" stroke="#c4a060" stroke-width="2" stroke-linecap="round" opacity="0.25"/>
+
+  <!-- Bottom text: SB monogram -->
+  <text x="256" y="455" text-anchor="middle" font-family="Georgia, serif" font-size="42" font-weight="bold" fill="url(#gold)" letter-spacing="8" opacity="0.85">SB</text>
+</svg>
